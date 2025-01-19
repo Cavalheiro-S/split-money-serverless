@@ -1,0 +1,42 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: cavalheiro
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: split-money-serverless
+
+plugins:
+  - serverless-offline
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  memorySize: 128
+  architecture: arm64
+
+custom:
+  esbuild:
+    target: node20
+    format: esm
+    minify: true
+    bundle: true
+    sourcemap: false
+    exclude:
+      - "@aws-sdk/*"
+    define:
+      require.resolve: false
+
+functions:
+  hello:
+    handler: src/index.handler
+    events:
+      - httpApi:
+          path: /
+          method: get
+  transaction:
+    handler: src/createTransaction.createTransaction
+    events:
+      - httpApi:
+          path: /createTransaction
+          method: post
