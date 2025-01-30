@@ -14,6 +14,9 @@ provider:
   runtime: nodejs20.x
   memorySize: 128
   architecture: arm64
+  environment:
+    SUPABASE_URL: ${env:SUPABASE_URL}
+    SUPABASE_KEY: ${env:SUPABASE_KEY}
 
 custom:
   esbuild:
@@ -24,19 +27,35 @@ custom:
     sourcemap: false
     exclude:
       - "@aws-sdk/*"
-    define:
-      require.resolve: false
 
 functions:
-  hello:
-    handler: src/index.handler
-    events:
-      - httpApi:
-          path: /
-          method: get
-  transaction:
-    handler: src/createTransaction.createTransaction
+  createTransaction:
+    handler: src/functions/createTransaction.handler
     events:
       - httpApi:
           path: /createTransaction
           method: post
+  updateTransaction:
+    handler: src/functions/updateTransaction.handler
+    events:
+      - httpApi:
+          path: /updateTransaction
+          method: patch
+  deleteTransaction:
+    handler: src/functions/deleteTransaction.handler
+    events:
+      - httpApi:
+          path: /deleteTransaction
+          method: delete
+  getTransactions:
+    handler: src/functions/getTransactions.handler
+    events:
+      - httpApi:
+          path: /getTransactions
+          method: get
+  getTransactionById:
+    handler: src/functions/getTransactionById.handler
+    events:
+      - httpApi:
+          path: /getTransactionById
+          method: get

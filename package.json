@@ -11,10 +11,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "serverless-esbuild": "^1.54.6",
     "serverless-offline": "^14.4.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
     "@types/aws-lambda": "^8.10.147"
   }
 }
