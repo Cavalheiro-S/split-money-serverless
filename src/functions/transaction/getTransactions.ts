@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
-import { supabase } from "../libs/supabase";
+import { supabase } from "../../libs/supabase";
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   const { data, error } = await supabase.from("transactions").select("*");

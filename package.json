@@ -16,6 +16,7 @@
     "serverless-offline": "^14.4.0"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.738.0",
     "@supabase/supabase-js": "^2.48.1",
     "@types/aws-lambda": "^8.10.147"
   }

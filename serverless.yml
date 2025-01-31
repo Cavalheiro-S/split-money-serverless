@@ -17,6 +17,7 @@ provider:
   environment:
     SUPABASE_URL: ${env:SUPABASE_URL}
     SUPABASE_KEY: ${env:SUPABASE_KEY}
+    COGNITO_CLIENT_ID: !Ref SplitMoneyUserPoolClient
 
 custom:
   esbuild:
@@ -28,33 +29,104 @@ custom:
     exclude:
       - "@aws-sdk/*"
 
+resources:
+  Resources:
+    SplitMoneyUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: SplitMoneyUserPool
+        MfaConfiguration: OFF
+        AutoVerifiedAttributes:
+          - email
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: false
+        UsernameAttributes:
+          - email
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: verified_email
+              Priority: 1
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: false
+            RequireNumbers: false
+            RequireSymbols: false
+            RequireUppercase: false
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+            AttributeDataType: String
+          - Name: name
+            Required: true
+            Mutable: true
+            AttributeDataType: String
+    SplitMoneyUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: SplitMoneyUserPoolClient
+        UserPoolId: !Ref SplitMoneyUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        TokenValidityUnits:
+          AccessToken: hours
+          RefreshToken: hours
+        AccessTokenValidity: 10 
+        RefreshTokenValidity: 168 # 7 days
+
 functions:
   createTransaction:
-    handler: src/functions/createTransaction.handler
+    handler: src/functions/transaction/createTransaction.handler
     events:
       - httpApi:
           path: /createTransaction
           method: post
+  createUser:
+    handler: src/functions/user/createUser.handler
+    events:
+      - httpApi:
+          path: /createUser
+          method: post
+  confirmUser:
+    handler: src/functions/user/confirmUser.handler
+    events:
+      - httpApi:
+          path: /confirmUser
+          method: post
+  signin:
+    handler: src/functions/auth/signIn.handler
+    events:
+      - httpApi:
+          path: /signin
+          method: post
+  refreshToken:
+    handler: src/functions/auth/refreshToken.handler
+    events:
+      - httpApi:
+          path: /refreshToken
+          method: post
   updateTransaction:
-    handler: src/functions/updateTransaction.handler
+    handler: src/functions/transaction/updateTransaction.handler
     events:
       - httpApi:
           path: /updateTransaction
           method: patch
   deleteTransaction:
-    handler: src/functions/deleteTransaction.handler
+    handler: src/functions/transaction/deleteTransaction.handler
     events:
       - httpApi:
           path: /deleteTransaction
           method: delete
   getTransactions:
-    handler: src/functions/getTransactions.handler
+    handler: src/functions/transaction/getTransactions.handler
     events:
       - httpApi:
           path: /getTransactions
           method: get
   getTransactionById:
-    handler: src/functions/getTransactionById.handler
+    handler: src/functions/transaction/getTransactionById.handler
     events:
       - httpApi:
           path: /getTransactionById
