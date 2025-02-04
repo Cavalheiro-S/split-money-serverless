@@ -14,6 +14,26 @@ provider:
   runtime: nodejs20.x
   memorySize: 128
   architecture: arm64
+  httpApi:
+    authorizers:
+      CognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !GetAtt SplitMoneyUserPool.ProviderURL
+        audience:
+          - !Ref SplitMoneyUserPoolClient
+    cors:
+      allowedOrigins:
+        - "http://localhost:3000"
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowedHeaders:
+        - Content-Type
+        - Authorization
   environment:
     SUPABASE_URL: ${env:SUPABASE_URL}
     SUPABASE_KEY: ${env:SUPABASE_KEY}
@@ -123,8 +143,11 @@ functions:
     handler: src/functions/transaction/getTransactions.handler
     events:
       - httpApi:
-          path: /getTransactions
+          path: /transactions
           method: get
+          authorizer:
+            name: CognitoAuthorizer
+          
   getTransactionById:
     handler: src/functions/transaction/getTransactionById.handler
     events:

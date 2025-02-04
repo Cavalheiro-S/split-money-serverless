@@ -1,19 +1,37 @@
 import { InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { cognitoClient } from "../../libs/cognito";
+import { z } from "zod";
+
+const schema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8),
+})
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
 
     try {
 
-        const body = JSON.parse(event.body || "{}");
+        const { data, success, error } = schema.safeParse(JSON.parse(event.body || "{}"));
+
+        console.log({ data, success, error });
+        
+        if (!success) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: "Invalid input",
+                    error
+                }),
+            };
+        }
 
         const command = new InitiateAuthCommand({
             ClientId: process.env.COGNITO_CLIENT_ID,
             AuthFlow: "USER_PASSWORD_AUTH",
             AuthParameters: {
-                USERNAME: body.email,
-                PASSWORD: body.password
+                USERNAME: data.email,
+                PASSWORD: data.password
             }
         })
 
