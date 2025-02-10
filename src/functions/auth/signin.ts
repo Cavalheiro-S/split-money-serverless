@@ -15,7 +15,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         const { data, success, error } = schema.safeParse(JSON.parse(event.body || "{}"));
 
         console.log({ data, success, error });
-        
+
         if (!success) {
             return {
                 statusCode: 400,
@@ -49,17 +49,17 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         return {
             statusCode: 200,
             body: JSON.stringify({
-                message: "User logged in",
-                token: AuthenticationResult.AccessToken,
+                message: "Success",
+                accessToken: AuthenticationResult.AccessToken,
                 refreshToken: AuthenticationResult.RefreshToken,
-            }),
+            })
         };
-    } catch (error) {
+    } catch (error: any) {
         return {
             statusCode: 500,
             body: JSON.stringify({
                 message: "Error login",
-                error
+                error: error.message || error,
             }),
         };
     }

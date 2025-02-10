@@ -15,6 +15,23 @@ provider:
   memorySize: 128
   architecture: arm64
   httpApi:
+    cors: 
+      allowedOrigins:
+        - "http://localhost:3000"
+      allowedHeaders:
+        - "Content-Type"
+        - "Authorization"
+        - "Set-Cookie"
+      allowedMethods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "PATCH"
+        - "DELETE"
+        - "OPTIONS"
+      allowCredentials: true
+      exposedResponseHeaders:
+        - "Set-Cookie"      
     authorizers:
       CognitoAuthorizer:
         type: jwt
@@ -22,18 +39,6 @@ provider:
         issuerUrl: !GetAtt SplitMoneyUserPool.ProviderURL
         audience:
           - !Ref SplitMoneyUserPoolClient
-    cors:
-      allowedOrigins:
-        - "http://localhost:3000"
-      allowedMethods:
-        - GET
-        - POST
-        - PUT
-        - DELETE
-        - OPTIONS
-      allowedHeaders:
-        - Content-Type
-        - Authorization
   environment:
     SUPABASE_URL: ${env:SUPABASE_URL}
     SUPABASE_KEY: ${env:SUPABASE_KEY}
@@ -97,60 +102,68 @@ resources:
         RefreshTokenValidity: 168 # 7 days
 
 functions:
-  createTransaction:
-    handler: src/functions/transaction/createTransaction.handler
-    events:
-      - httpApi:
-          path: /createTransaction
-          method: post
-  createUser:
-    handler: src/functions/user/createUser.handler
-    events:
-      - httpApi:
-          path: /createUser
-          method: post
-  confirmUser:
-    handler: src/functions/user/confirmUser.handler
-    events:
-      - httpApi:
-          path: /confirmUser
-          method: post
   signin:
-    handler: src/functions/auth/signIn.handler
-    events:
-      - httpApi:
-          path: /signin
-          method: post
+      handler: src/functions/auth/signIn.handler
+      events:
+        - httpApi:
+            path: /sign-in
+            method: post
   refreshToken:
-    handler: src/functions/auth/refreshToken.handler
-    events:
-      - httpApi:
-          path: /refreshToken
-          method: post
+      handler: src/functions/auth/refreshToken.handler
+      events:
+        - httpApi:
+            path: /refresh-token
+            method: post
+  createUser:
+      handler: src/functions/user/createUser.handler
+      events:
+        - httpApi:
+            path: /create-user
+            method: post
+  confirmUser:
+      handler: src/functions/user/confirmUser.handler
+      events:
+        - httpApi:
+            path: /confirm-user
+            method: post
+  createTransaction:
+      handler: src/functions/transaction/createTransaction.handler
+      events:
+        - httpApi:
+            path: /create-transaction
+            method: post
+            authorizer:
+              name: CognitoAuthorizer
   updateTransaction:
-    handler: src/functions/transaction/updateTransaction.handler
-    events:
-      - httpApi:
-          path: /updateTransaction
-          method: patch
+      handler: src/functions/transaction/updateTransaction.handler
+      events:
+        - httpApi:
+            path: /update-transaction
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
   deleteTransaction:
-    handler: src/functions/transaction/deleteTransaction.handler
-    events:
-      - httpApi:
-          path: /deleteTransaction
-          method: delete
+      handler: src/functions/transaction/deleteTransaction.handler
+      events:
+        - httpApi:
+            path: /delete-transaction
+            method: delete
+            authorizer:
+              name: CognitoAuthorizer
   getTransactions:
-    handler: src/functions/transaction/getTransactions.handler
-    events:
-      - httpApi:
-          path: /transactions
-          method: get
-          authorizer:
-            name: CognitoAuthorizer
-          
+      handler: src/functions/transaction/getTransactions.handler
+      events:
+        - httpApi:
+            path: /transactions
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+            
   getTransactionById:
-    handler: src/functions/transaction/getTransactionById.handler
-    events:
-      - httpApi:
-          path: /getTransactionById
-          method: get
+      handler: src/functions/transaction/getTransactionById.handler
+      events:
+        - httpApi:
+            path: /get-transaction-by-id
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
