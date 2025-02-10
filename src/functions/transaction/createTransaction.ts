@@ -56,7 +56,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       statusCode: 200,
       body: JSON.stringify({
         message: "Create new Transaction",
-        event: response
+        data: response.data
       }),
     };
   }

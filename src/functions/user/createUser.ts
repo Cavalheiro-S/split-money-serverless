@@ -54,10 +54,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         updatedAt: new Date(),
       })
 
-    console.log(response);
     
     if (response.error) {
-      // Delete the user from Cognito if Supabase insertion fails
       await cognitoClient.send(new AdminDeleteUserCommand({
         UserPoolId: process.env.COGNITO_USER_POOL_ID,
         Username: data.email
