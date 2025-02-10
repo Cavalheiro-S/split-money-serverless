@@ -1,9 +1,13 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import type { APIGatewayProxyEventV2, APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { supabase } from "../../libs/supabase";
 
-export const handler = async (event: APIGatewayProxyEventV2) => {
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-    const { data, error } = await supabase.from("transactions").select("*");
+    const { data, error } = await supabase
+      .from("transactions")
+      .select()
+      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string);
+
 
     if (error) {
       return {

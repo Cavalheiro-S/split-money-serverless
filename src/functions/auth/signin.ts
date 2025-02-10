@@ -14,8 +14,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
         const { data, success, error } = schema.safeParse(JSON.parse(event.body || "{}"));
 
-        console.log({ data, success, error });
-
         if (!success) {
             return {
                 statusCode: 400,
