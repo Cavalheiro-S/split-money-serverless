@@ -130,7 +130,7 @@ functions:
       handler: src/functions/transaction/createTransaction.handler
       events:
         - httpApi:
-            path: /create-transaction
+            path: /transaction
             method: post
             authorizer:
               name: CognitoAuthorizer
@@ -138,7 +138,7 @@ functions:
       handler: src/functions/transaction/updateTransaction.handler
       events:
         - httpApi:
-            path: /update-transaction/{id}
+            path: /transaction/{id}
             method: patch
             authorizer:
               name: CognitoAuthorizer
@@ -146,7 +146,7 @@ functions:
       handler: src/functions/transaction/deleteTransaction.handler
       events:
         - httpApi:
-            path: /delete-transaction/{id}
+            path: /transaction/{id}
             method: delete
             authorizer:
               name: CognitoAuthorizer

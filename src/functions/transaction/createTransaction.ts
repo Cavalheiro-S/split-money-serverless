@@ -1,13 +1,13 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { date, z } from "zod";
-import { supabase } from "../../libs/supabase";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+import { supabase } from "../../libs/supabase";
 
 const schema = z.object({
   description: z.string(),
   date: z.coerce.date(),
   amount: z.number(),
-  type: z.enum(["income", "expense"]),
+  type: z.enum(["income", "outcome"]),
   category: z.string(),
 })
 
