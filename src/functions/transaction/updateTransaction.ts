@@ -6,7 +6,7 @@ const schema = z.object({
   description: z.string(),
   date: z.coerce.date(),
   amount: z.number(),
-  type: z.enum(["income", "expense"]),
+  type: z.enum(["income", "outcome"]),
   category: z.string(),
 })
 
