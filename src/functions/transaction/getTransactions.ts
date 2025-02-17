@@ -1,13 +1,25 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { z } from "zod";
 import { supabase } from "../../libs/supabase";
+
+const schema = z.object({
+  page: z.coerce.number().default(1),
+  limit: z.coerce.number().default(1),
+})
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select()
-      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string);
+    const { page, limit } = schema.parse(event.queryStringParameters);
+    // Definir índices de paginação
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit - 1;
 
+    const { data, error, count } = await supabase
+      .from("transactions")
+      .select("*", { count: "exact" })
+      .range(startIndex, endIndex)
+      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string);
+      
 
     if (error) {
       return {
@@ -22,7 +34,13 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       statusCode: 200,
       body: JSON.stringify({
         message: "Get Transaction",
-        data
+        data,
+        pagination: {
+          total: count,
+          page,
+          limit,
+          totalPages: Math.ceil((count || 0) / limit),
+        },
       }),
     };
   }
