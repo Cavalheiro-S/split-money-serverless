@@ -3,13 +3,14 @@ import { z } from "zod";
 import { supabase } from "../../libs/supabase";
 
 const schema = z.object({
-  page: z.coerce.number().default(1),
-  limit: z.coerce.number().default(1),
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(1),
+  type: z.enum(["income", "outcome"]).optional(),
 })
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-    const { page, limit } = schema.parse(event.queryStringParameters);
+    const { page, limit, type } = schema.parse(event.queryStringParameters);
     // Definir índices de paginação
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit - 1;
@@ -18,7 +19,8 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       .from("transactions")
       .select("*", { count: "exact" })
       .range(startIndex, endIndex)
-      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string);
+      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string)
+      .in("type", type ? [type] : ["income", "outcome"]);
       
 
     if (error) {
