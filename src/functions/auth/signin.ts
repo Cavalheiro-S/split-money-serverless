@@ -1,7 +1,8 @@
-import { InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { InitiateAuthCommand, NotAuthorizedException, UserNotFoundException } from "@aws-sdk/client-cognito-identity-provider";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { cognitoClient } from "../../libs/cognito";
 import { z } from "zod";
+import { AuthExceptions } from "../../enums/exceptions/auth";
 
 const schema = z.object({
     email: z.string().email(),
@@ -53,11 +54,38 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             })
         };
     } catch (error: any) {
+        console.log({ error });
+
+        if (error instanceof NotAuthorizedException) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: {
+                        code: AuthExceptions.InvalidInput,
+                        message: "Invalid input"
+                    }
+                }),
+            };
+        }
+        if (error instanceof UserNotFoundException) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: {
+                        code: AuthExceptions.InvalidInput,
+                        message: "Invalid input"
+                    }
+                }),
+            };
+        }
         return {
             statusCode: 500,
             body: JSON.stringify({
                 message: "Error login",
-                error: error.message || error,
+                error: {
+                    code: AuthExceptions.Default,
+                    message: "Internal server error"
+                },
             }),
         };
     }
