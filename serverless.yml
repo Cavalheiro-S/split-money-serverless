@@ -18,6 +18,7 @@ provider:
     cors: 
       allowedOrigins:
         - "http://localhost:3000"
+        - "https://split-money.vercel.app"
       allowedHeaders:
         - "Content-Type"
         - "Authorization"
