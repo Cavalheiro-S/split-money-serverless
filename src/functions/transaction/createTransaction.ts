@@ -11,7 +11,7 @@ const schema = z.object({
   amount: z.number(),
   type: z.enum(["income", "outcome"]),
   category: z.string(),
-  recorrent: z
+  recurrent: z
     .object({
       frequency: z.enum(Object.values(TransactionFrequencyEnum) as [string, ...string[]]),
       quantity: z.number().int().positive(),
@@ -53,12 +53,12 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       date: data.date
     }
     let response : PostgrestSingleResponse<any[]> | undefined = undefined;
-    if (data.recorrent) {
+    if (data.recurrent) {
       const payloadList: Transaction[] = [];
-      for (let i = 0; i <= data.recorrent.quantity; i++) {
+      for (let i = 0; i <= data.recurrent.quantity; i++) {
         const IS_PARENT_TRANSACTION = i === 0;
         const date = new Date(data.date);
-        switch (data.recorrent.frequency) {
+        switch (data.recurrent.frequency) {
           case TransactionFrequencyEnum.DAILY:
             date.setDate(date.getDate() + i);
             break;
