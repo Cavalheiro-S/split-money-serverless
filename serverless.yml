@@ -155,7 +155,7 @@ functions:
       handler: src/functions/transaction/getTransactions.handler
       events:
         - httpApi:
-            path: /transactions
+            path: /transaction
             method: get
             authorizer:
               name: CognitoAuthorizer
