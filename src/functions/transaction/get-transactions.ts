@@ -1,11 +1,11 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import { startOfMonth, endOfMonth, format, parse } from "date-fns";
 
 const schema = z.object({
   page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(10), // Limite mais razoável por padrão
+  limit: z.coerce.number().optional().default(10),
   type: z.enum(["income", "outcome"]).optional(),
   date: z.string().optional(),
 });
@@ -17,10 +17,9 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit - 1;
 
-    // Converter a string para Date, se fornecida
     const startDate = date ? startOfMonth(new Date(date)) : undefined;
     const endDate = date ? endOfMonth(new Date(date)) : undefined;
-    
+
     let query = supabase
       .from("transactions")
       .select("*", { count: "exact" })
@@ -65,7 +64,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     };
   } catch (error) {
     return {
-      statusCode: 500, // Melhor indicar erro do servidor
+      statusCode: 500,
       body: JSON.stringify({
         message: "Unexpected error",
         error: error instanceof Error ? error.message : "Unknown error",

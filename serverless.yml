@@ -128,7 +128,7 @@ functions:
             path: /confirm-user
             method: post
   createTransaction:
-      handler: src/functions/transaction/createTransaction.handler
+      handler: src/functions/transaction/create-transaction.handler
       events:
         - httpApi:
             path: /transaction
@@ -136,7 +136,7 @@ functions:
             authorizer:
               name: CognitoAuthorizer
   updateTransaction:
-      handler: src/functions/transaction/updateTransaction.handler
+      handler: src/functions/transaction/update-transaction.handler
       events:
         - httpApi:
             path: /transaction/{id}
@@ -144,7 +144,7 @@ functions:
             authorizer:
               name: CognitoAuthorizer
   deleteTransaction:
-      handler: src/functions/transaction/deleteTransaction.handler
+      handler: src/functions/transaction/delete-transaction.handler
       events:
         - httpApi:
             path: /transaction/{id}
@@ -152,19 +152,50 @@ functions:
             authorizer:
               name: CognitoAuthorizer
   getTransactions:
-      handler: src/functions/transaction/getTransactions.handler
+      handler: src/functions/transaction/get-transactions.handler
       events:
         - httpApi:
             path: /transaction
             method: get
             authorizer:
-              name: CognitoAuthorizer
-            
+              name: CognitoAuthorizer   
   getTransactionById:
-      handler: src/functions/transaction/getTransactionById.handler
+      handler: src/functions/transaction/get-transaction-by-id.handler
       events:
         - httpApi:
             path: /get-transaction-by-id
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+  createPayment:
+      handler: src/functions/payment-status/create-payment.handler
+      events:
+        - httpApi:
+            path: /payment
+            method: post
+            authorizer:
+              name: CognitoAuthorizer
+  updatePayment:
+      handler: src/functions/payment-status/update-payment.handler
+      events:
+        - httpApi:
+            path: /payment/{id}
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
+  deletePayment:
+      handler: src/functions/payment-status/delete-payment.handler
+      events:
+        - httpApi:
+            path: /payment/{id}
+            method: delete
+            authorizer:
+              name: CognitoAuthorizer
+  getPayment:
+      handler: src/functions/payment-status/get-payment.handler
+      events:
+        - httpApi:
+            path: /payment
             method: get
             authorizer:
               name: CognitoAuthorizer
