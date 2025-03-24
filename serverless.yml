@@ -109,6 +109,24 @@ functions:
         - httpApi:
             path: /sign-in
             method: post
+  confirmEmail:
+      handler: src/functions/auth/confirm-email.handler
+      events:
+        - httpApi:
+            path: /confirm-email
+            method: post
+  forgotPassword:
+      handler: src/functions/auth/forgot-password.handler
+      events:
+        - httpApi:
+            path: /forgot-password
+            method: post
+  resetPassword:
+      handler: src/functions/auth/reset-password.handler
+      events:
+        - httpApi:
+            path: /reset-password
+            method: post
   refreshToken:
       handler: src/functions/auth/refreshToken.handler
       events:
