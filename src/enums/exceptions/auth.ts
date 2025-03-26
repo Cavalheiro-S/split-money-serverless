@@ -4,5 +4,6 @@ export enum AuthExceptions {
     InvalidConfirmationCode = "Invalid confirmation code",
     ExpiredConfirmationCode = "Expired confirmation code",
     UserNotFound = "User not found",
-    LimitExceeded = "Limit exceeded"
+    LimitExceeded = "Limit exceeded",
+    Unauthorized = "Unauthorized"
 }

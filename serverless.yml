@@ -103,6 +103,7 @@ resources:
         RefreshTokenValidity: 168 # 7 days
 
 functions:
+  # Auth
   signin:
       handler: src/functions/auth/signIn.handler
       events:
@@ -127,24 +128,35 @@ functions:
         - httpApi:
             path: /reset-password
             method: post
+  
   refreshToken:
       handler: src/functions/auth/refreshToken.handler
       events:
         - httpApi:
             path: /refresh-token
             method: post
+  # User
   createUser:
       handler: src/functions/user/createUser.handler
       events:
         - httpApi:
             path: /create-user
             method: post
+  getUser:
+      handler: src/functions/user/get-user.handler
+      events:
+        - httpApi:
+            path: /user
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
   confirmUser:
       handler: src/functions/user/confirmUser.handler
       events:
         - httpApi:
             path: /confirm-user
             method: post
+  # Transaction
   createTransaction:
       handler: src/functions/transaction/create-transaction.handler
       events:
@@ -185,6 +197,8 @@ functions:
             method: get
             authorizer:
               name: CognitoAuthorizer
+
+  # Payment Status
   createPayment:
       handler: src/functions/payment-status/create-payment.handler
       events:
