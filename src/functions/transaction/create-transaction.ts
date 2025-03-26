@@ -17,6 +17,7 @@ const schema = z.object({
       quantity: z.number().int().positive(),
     })
     .optional(),
+  paymentStatusId: z.string().optional(),
 })
 
 type Transaction = z.infer<typeof schema> & {
@@ -50,7 +51,8 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       category: data.category,
       userId: sub,
       updatedAt: new Date(),
-      date: data.date
+      date: data.date,
+      paymentStatusId: data.paymentStatusId
     }
     let response : PostgrestSingleResponse<any[]> | undefined = undefined;
     if (data.recurrent) {

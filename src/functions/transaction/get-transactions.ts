@@ -22,7 +22,13 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
     let query = supabase
       .from("transactions")
-      .select("*", { count: "exact" })
+      .select(`
+        *,
+        payment_status (
+          id,
+          status
+        )
+      `, { count: "exact" })
       .range(startIndex, endIndex)
       .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string)
       .order("date", { ascending: false });

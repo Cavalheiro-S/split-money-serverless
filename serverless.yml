@@ -193,7 +193,7 @@ functions:
       handler: src/functions/transaction/get-transaction-by-id.handler
       events:
         - httpApi:
-            path: /get-transaction-by-id
+            path: /get-transaction-by-id/{id}
             method: get
             authorizer:
               name: CognitoAuthorizer

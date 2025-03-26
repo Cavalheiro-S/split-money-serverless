@@ -8,6 +8,7 @@ const schema = z.object({
   amount: z.number(),
   type: z.enum(["income", "outcome"]),
   category: z.string(),
+  paymentStatusId: z.string().optional(),
 })
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
@@ -47,8 +48,10 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         category: data.category,
         userId: sub,
         updatedAt: new Date(),
+        paymentStatusId: data.paymentStatusId
       })
       .eq("id", id)
+      .select(`*`)
 
     if (response.error) {
       return {
