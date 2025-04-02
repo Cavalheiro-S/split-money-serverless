@@ -142,11 +142,19 @@ functions:
         - httpApi:
             path: /create-user
             method: post
-  getUser:
-      handler: src/functions/user/get-user.handler
+  me:
+      handler: src/functions/user/me.handler
       events:
         - httpApi:
-            path: /user
+            path: /user/me
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+  getUserById:
+      handler: src/functions/user/get-user-by-id.handler
+      events:
+        - httpApi:
+            path: /user/{id}
             method: get
             authorizer:
               name: CognitoAuthorizer
