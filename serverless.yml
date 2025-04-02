@@ -164,6 +164,14 @@ functions:
         - httpApi:
             path: /confirm-user
             method: post
+  updateEmail:
+      handler: src/functions/user/update-email.handler
+      events:
+        - httpApi:
+            path: /user/email
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
   # Transaction
   createTransaction:
       handler: src/functions/transaction/create-transaction.handler
