@@ -1,9 +1,8 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { supabase } from "../../libs/supabase";
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-
     const { id } = event.pathParameters || {};
     if(!id) {
       return {

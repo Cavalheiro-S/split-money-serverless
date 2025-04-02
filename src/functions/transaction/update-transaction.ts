@@ -1,31 +1,25 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";  
+
+type Tables = Database['public']['Tables']
+type Transaction = Tables['transactions']['Row']
+type TransactionUpdate = Tables['transactions']['Update']
 
 const schema = z.object({
-  description: z.string(),
-  date: z.coerce.date(),
-  amount: z.number(),
-  type: z.enum(["income", "outcome"]),
-  category: z.string(),
+  description: z.string().optional(),
+  date: z.coerce.date().optional(),
+  amount: z.number().optional(),
+  type: z.enum(["income", "outcome"]).optional(),
+  category: z.string().optional(),
   paymentStatusId: z.string().optional(),
-})
+});
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-
-    const body = JSON.parse(event.body || "{}");
     const { id } = event.pathParameters || {};
-    if(!id) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: "Invalid id",
-        }),
-      };
-    }
-    
-    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
+    const body = JSON.parse(event.body || "{}");
     const { success, data, error } = schema.safeParse(body);
 
     if (error || !success) {
@@ -38,27 +32,27 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       };
     }
 
-    const response = await supabase
-      .from("transactions")
-      .update({
-        description: data.description,
-        date: data.date,
-        amount: data.amount,
-        type: data.type,
-        category: data.category,
-        userId: sub,
-        updatedAt: new Date(),
-        paymentStatusId: data.paymentStatusId
-      })
-      .eq("id", id)
-      .select(`*`)
+    const payload: TransactionUpdate = {
+      ...data,
+      updatedAt: new Date(),
+    };
 
-    if (response.error) {
+    const { data: updatedTransaction, error: updateError } = await supabase
+      .from("transactions")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single() as { 
+        data: Transaction | null;
+        error: any;
+      };
+
+    if (updateError) {
       return {
         statusCode: 400,
         body: JSON.stringify({
           message: "Error updating transaction",
-          error: response.error
+          error: updateError
         }),
       };
     }
@@ -67,7 +61,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       statusCode: 200,
       body: JSON.stringify({
         message: "Update transaction",
-        data: response.data
+        data: updatedTransaction
       }),
     };
   }

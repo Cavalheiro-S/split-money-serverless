@@ -1,7 +1,12 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import { v4 as uuidv4 } from "uuid";
+import { Database } from "../../types/database/database.types";
+
+type Tables = Database['public']['Tables']
+type PaymentStatus = Tables['payment_status']['Row']
+type PaymentStatusInsert = Tables['payment_status']['Insert']
 
 const schema = z.object({
     status: z.string(),
@@ -23,22 +28,24 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
             };
         }
         const id = uuidv4();
-        const payload = {
+        const payload: PaymentStatusInsert = {
             id,
             status: data.status,
-            createdAt: new Date(),
             updatedAt: new Date()
         }
 
-        const response = await supabase.from("payment_status").insert(payload).select("*")
+        const { data: paymentStatus, error: createError } = await supabase.from("payment_status").insert(payload).select().single() as {
+            data: PaymentStatus | null;
+            error: any;
+        };
 
-        if (response.error) {
+        if (createError) {
 
             return {
                 statusCode: 400,
                 body: JSON.stringify({
                     message: "Error creating payment status",
-                    error: response.error
+                    error: createError
                 }),
             };
         }
@@ -47,7 +54,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
             statusCode: 200,
             body: JSON.stringify({
                 message: "Create new payment status",
-                data: response.data
+                data: paymentStatus
             }),
         };
     }

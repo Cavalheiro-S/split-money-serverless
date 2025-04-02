@@ -1,29 +1,44 @@
-import type { APIGatewayProxyEventV2 } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";
 
-export const handler = async (event: APIGatewayProxyEventV2) => {
-  const id = event.pathParameters?.id;
-  if (!id) {
+type Tables = Database['public']['Tables']
+type Transaction = Tables['transactions']['Row']
+
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
+  try {
+    const { id } = event.pathParameters || {};
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(`
+        *,
+        payment_status (*)
+      `)
+      .eq("id", id)
+      .single() as {
+        data: (Transaction & { payment_status: Tables['payment_status']['Row'] | null }) | null;
+        error: any;
+      };
+
+    if (error) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Error fetching transaction",
+          error: error.message,
+        }), 
+      };
+    }
+
     return {
-      statusCode: 400,
+      statusCode: 200,
       body: JSON.stringify({
-        message: "Transaction ID is required",
+        message: "Get Transaction By Id",
+        data: data
       }),
     };
   }
-  const { data, error } = await supabase
-    .from("transactions")
-    .select(`
-      *,
-      payment_status (
-        id,
-        status
-      )
-    `)
-    .eq("id", id)
-    .single();
-
-  if (error) {
+  catch (error) {
     return {
       statusCode: 400,
       body: JSON.stringify({
@@ -32,12 +47,4 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       }), 
     };
   }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      message: "Get Transaction By Id",
-      data: data
-    }),
-  };
 };

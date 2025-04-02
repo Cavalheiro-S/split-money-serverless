@@ -1,11 +1,18 @@
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";
 
-export const handler = async () => {
+type Tables = Database['public']['Tables']
+type PaymentStatus = Tables['payment_status']['Row']
+
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
     try {
-
         const { data, error } = await supabase
             .from("payment_status")
-            .select("*", { count: "exact" });
+            .select("*") as {
+                data: PaymentStatus[] | null;
+                error: any;
+            };
 
         if (error) {
             return {

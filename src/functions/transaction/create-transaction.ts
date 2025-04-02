@@ -4,6 +4,11 @@ import { Schema, z } from "zod";
 import { supabase } from "../../libs/supabase";
 import { TransactionFrequencyEnum } from "../../enums/transaction";
 import { PostgrestSingleResponse } from "@supabase/supabase-js";
+import { Database } from "../../types/database/database.types";
+
+type Tables = Database['public']['Tables']
+type Transaction = Tables['transactions']['Row']
+type TransactionInsert = Tables['transactions']['Insert']
 
 const schema = z.object({
   description: z.string(),
@@ -19,13 +24,6 @@ const schema = z.object({
     .optional(),
   paymentStatusId: z.string().optional(),
 })
-
-type Transaction = z.infer<typeof schema> & {
-  id: string;
-  userId: string;
-  updatedAt: Date;
-  parentId?: string;
-};
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
@@ -43,7 +41,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         }),
       };
     }
-    const payload: Transaction = {
+    const payload: TransactionInsert = {
       id,
       description: data.description,
       amount: data.amount,
@@ -52,11 +50,12 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       userId: sub,
       updatedAt: new Date(),
       date: data.date,
-      paymentStatusId: data.paymentStatusId
+      paymentStatusId: data.paymentStatusId,
+      parentId: undefined
     }
-    let response : PostgrestSingleResponse<any[]> | undefined = undefined;
+    let response: PostgrestSingleResponse<Transaction[]> | undefined = undefined;
     if (data.recurrent) {
-      const payloadList: Transaction[] = [];
+      const payloadList: TransactionInsert[] = [];
       for (let i = 0; i <= data.recurrent.quantity; i++) {
         const IS_PARENT_TRANSACTION = i === 0;
         const date = new Date(data.date);

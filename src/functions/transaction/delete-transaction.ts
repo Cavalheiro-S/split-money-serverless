@@ -1,9 +1,11 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";
+
+type Tables = Database['public']['Tables']
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-
     const { id } = event.pathParameters || {};
     if(!id) {
       return {

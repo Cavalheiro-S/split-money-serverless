@@ -1,6 +1,11 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";
+
+type Tables = Database['public']['Tables']
+type PaymentStatus = Tables['payment_status']['Row']
+type PaymentStatusUpdate = Tables['payment_status']['Update']
 
 const schema = z.object({
     status: z.string(),
@@ -9,17 +14,8 @@ const schema = z.object({
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
     try {
-
-        const body = JSON.parse(event.body || "{}");
         const { id } = event.pathParameters || {};
-        if (!id) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: "Invalid id",
-                }),
-            };
-        }
+        const body = JSON.parse(event.body || "{}");
         const { success, data, error } = schema.safeParse(body);
         if (error || !success) {
             return {
@@ -30,21 +26,27 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
                 }),
             };
         }
-        const payload = {
+        const payload: PaymentStatusUpdate = {
             status: data.status,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
         }
 
-        const response = await supabase.from("payment_status").update(payload).eq("id", id)
+        const { data: updatedPayment, error: updateError } = await supabase
+            .from("payment_status")
+            .update(payload)
+            .eq("id", id)
+            .select()
+            .single() as {
+                data: PaymentStatus | null;
+                error: any;
+            };
 
-        if (response.error) {
-
+        if (updateError) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({
                     message: "Error update payment status",
-                    error: response.error
+                    error: updateError
                 }),
             };
         }
@@ -53,7 +55,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
             statusCode: 200,
             body: JSON.stringify({
                 message: "Updated payment status",
-                data: response.data
+                data: updatedPayment
             }),
         };
     }

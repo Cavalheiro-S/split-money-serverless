@@ -1,7 +1,11 @@
-import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.types";  
+
+type Tables = Database['public']['Tables']
+type Transaction = Tables['transactions']['Row']
 
 const schema = z.object({
   page: z.coerce.number().optional().default(1),
@@ -20,17 +24,15 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     const startDate = date ? startOfMonth(new Date(date)) : undefined;
     const endDate = date ? endOfMonth(new Date(date)) : undefined;
 
+    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
     let query = supabase
       .from("transactions")
       .select(`
         *,
-        payment_status (
-          id,
-          status
-        )
+        payment_status (*)
       `, { count: "exact" })
       .range(startIndex, endIndex)
-      .eq("userId", event.requestContext.authorizer.jwt.claims.sub as string)
+      .eq("userId", sub)
       .order("date", { ascending: false });
 
     if (type) {
@@ -43,7 +45,11 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         .lte("date", format(endDate, "yyyy-MM-dd HH:mm:ss"));
     }
 
-    const { data, error, count } = await query;
+    const { data, error, count } = await query as { 
+      data: (Transaction & { payment_status: Tables['payment_status']['Row'] | null })[] | null;
+      error: any;
+      count: number;
+    };
 
     if (error) {
       return {
