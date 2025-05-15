@@ -54,7 +54,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         updatedAt: new Date(),
       })
 
-    
+
     if (response.error) {
       await cognitoClient.send(new AdminDeleteUserCommand({
         UserPoolId: process.env.COGNITO_USER_POOL_ID,

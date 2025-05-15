@@ -3,6 +3,7 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { cognitoClient } from "../../libs/cognito";
 import { z } from "zod";
 import { AuthExceptions } from "../../enums/exceptions/auth";
+import { supabase } from "../../libs/supabase";
 
 const schema = z.object({
     email: z.string().email("Email inválido"),
@@ -35,6 +36,26 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         });
 
         await cognitoClient.send(command);
+        const response = await supabase
+            .from("users")
+            .update({
+                password: data.newPassword,
+            })
+            .eq("email", data.email)
+
+        if(response.error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    error: {
+                        code: AuthExceptions.Default,
+                        message: "Erro ao atualizar senha",
+                        details: response.error.message
+                    }
+                }),
+            };
+        }
+        
 
         return {
             statusCode: 200,
