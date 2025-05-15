@@ -3,6 +3,7 @@ import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { cognitoClient } from "../../libs/cognito";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
+import * as bcrypt from 'bcryptjs';
 
 const schema = z.object({
   email: z.string().email(),
@@ -11,7 +12,6 @@ const schema = z.object({
 })
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
-
   try {
     const { success, data, error } = schema.safeParse(JSON.parse(event.body || "{}"));
     if (!success) {
@@ -42,18 +42,20 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
     const { UserSub } = await cognitoClient.send(command);
 
+    // Hash the password with bcrypt before storing in database
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
     const response = await supabase
       .from("users")
       .insert({
         id: UserSub,
         email: data.email,
         name: data.name,
-        password: data.password,
+        hashedPassword: hashedPassword, // Store hashed password instead of plain text
         loginMethod: "cognito",
         balance: 0,
         updatedAt: new Date(),
       })
-
 
     if (response.error) {
       await cognitoClient.send(new AdminDeleteUserCommand({

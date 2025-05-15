@@ -4,6 +4,7 @@ import { cognitoClient } from "../../libs/cognito";
 import { z } from "zod";
 import { AuthExceptions } from "../../enums/exceptions/auth";
 import { supabase } from "../../libs/supabase";
+import * as bcrypt from 'bcryptjs';
 
 const schema = z.object({
     email: z.string().email("Email inválido"),
@@ -36,10 +37,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         });
 
         await cognitoClient.send(command);
+
+        // Hash the new password before storing
+        const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+
         const response = await supabase
             .from("users")
             .update({
-                password: data.newPassword,
+                hashedPassword: hashedPassword,
             })
             .eq("email", data.email)
 
@@ -56,7 +61,6 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             };
         }
         
-
         return {
             statusCode: 200,
             body: JSON.stringify({
@@ -116,4 +120,4 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
             }),
         };
     }
-}; 
+};
