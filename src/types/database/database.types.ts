@@ -1,5 +1,7 @@
 import { Transaction } from "./transaction.type"
 import { PaymentStatus } from "./payment-status.type"
+import { Investment } from "./investment.type"
+
 export type Json =
   | string
   | number
@@ -13,6 +15,7 @@ export interface Database {
     Tables: {
       transactions: Transaction
       payment_status: PaymentStatus
+      investments: Investment
     }
   }
-} 
+}

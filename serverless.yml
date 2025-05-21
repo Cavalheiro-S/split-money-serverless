@@ -247,3 +247,45 @@ functions:
             method: get
             authorizer:
               name: CognitoAuthorizer
+
+  # Investments
+  createInvestment:
+      handler: src/functions/investment/create-investment.handler
+      events:
+        - httpApi:
+            path: /investment
+            method: post
+            authorizer:
+              name: CognitoAuthorizer
+  getInvestments:
+      handler: src/functions/investment/get-investments.handler
+      events:
+        - httpApi:
+            path: /investment
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+  getInvestmentById:
+      handler: src/functions/investment/get-investment-by-id.handler
+      events:
+        - httpApi:
+            path: /investment/{id}
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+  updateInvestment:
+      handler: src/functions/investment/update-investment.handler
+      events:
+        - httpApi:
+            path: /investment/{id}
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
+  deleteInvestment:
+      handler: src/functions/investment/delete-investment.handler
+      events:
+        - httpApi:
+            path: /investment/{id}
+            method: delete
+            authorizer:
+              name: CognitoAuthorizer
