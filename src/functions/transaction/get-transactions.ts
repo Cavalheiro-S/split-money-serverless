@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { endOfMonth, format, startOfMonth } from "date-fns";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import { Database } from "../../types/database/database.types";  
+import { Database } from "../../types/database/database.types";
 
 type Tables = Database['public']['Tables']
 type Transaction = Tables['transactions']['Row']
@@ -12,11 +12,14 @@ const schema = z.object({
   limit: z.coerce.number().optional().default(10),
   type: z.enum(["income", "outcome"]).optional(),
   date: z.string().optional(),
+  status: z.string().optional(),
+  sortBy: z.enum(["description", "date", "amount", "type", "category", "payment_status"]).optional().default("date"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
-    const { page, limit, type, date } = schema.parse(event.queryStringParameters);
+    const { page, limit, type, date, status, sortBy, sortOrder } = schema.parse(event.queryStringParameters);
 
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit - 1;
@@ -33,10 +36,13 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       `, { count: "exact" })
       .range(startIndex, endIndex)
       .eq("userId", sub)
-      .order("date", { ascending: false });
-
+      .order(sortBy === "payment_status" ? "payment_status(status)" : sortBy, { ascending: sortOrder === "asc" });
     if (type) {
       query = query.eq("type", type);
+    }
+
+    if (status) {
+      query = query.eq("payment_status.status", status);
     }
 
     if (startDate && endDate) {
@@ -45,7 +51,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         .lte("date", format(endDate, "yyyy-MM-dd HH:mm:ss"));
     }
 
-    const { data, error, count } = await query as { 
+    const { data, error, count } = await query as {
       data: (Transaction & { payment_status: Tables['payment_status']['Row'] | null })[] | null;
       error: any;
       count: number;
