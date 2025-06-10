@@ -38,12 +38,12 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       }),
     };
   }
-  catch (error) {
+  catch (error: any) {
     return {
       statusCode: 400,
       body: JSON.stringify({
         message: "Error fetching transaction",
-        error: error.message,
+        error: error?.message,
       }), 
     };
   }
