@@ -1,4 +1,4 @@
-export interface PaymentStatus {
+export interface Tag {
     Row: {
       id: string
       description: string
@@ -6,6 +6,6 @@ export interface PaymentStatus {
       updated_at: Date
       user_id: string
     }
-    Insert: Omit<PaymentStatus['Row'], 'created_at'>
-    Update: Partial<PaymentStatus['Insert']>
+    Insert: Omit<Tag['Row'], 'created_at'>
+    Update: Partial<Tag['Insert']>
   }

@@ -15,7 +15,9 @@ const schema = z.object({
   date: z.coerce.date(),
   amount: z.number(),
   type: z.enum(["income", "outcome"]),
-  category: z.string(),
+  categoryId: z.string().optional(),
+  tagId: z.string().optional(),
+  note: z.string().optional(),
   recurrent: z
     .object({
       frequency: z.enum(Object.values(TransactionFrequencyEnum) as [string, ...string[]]),
@@ -40,24 +42,25 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
           error
         }),
       };
-    }
-    const payload: TransactionInsert = {
+    }    const payload: TransactionInsert = {
       id,
       description: data.description,
       amount: data.amount,
       type: data.type,
-      category: data.category,
-      userId: sub,
-      updatedAt: new Date(),
+      category_id: data.categoryId,
+      tag_id: data.tagId,
+      note: data.note,
+      user_id: sub,
+      updated_at: new Date(),
       date: data.date,
-      paymentStatusId: data.paymentStatusId,
-      parentId: undefined
+      payment_status_id: data.paymentStatusId
     }
-    let response: PostgrestSingleResponse<Transaction[]> | undefined = undefined;
-    if (data.recurrent) {
+    let response: PostgrestSingleResponse<Transaction[]> | undefined = undefined;    if (data.recurrent) {
+      // Create a recurrent transaction
+      const recurrentId = uuidv4();
+      
       const payloadList: TransactionInsert[] = [];
       for (let i = 0; i <= data.recurrent.quantity; i++) {
-        const IS_PARENT_TRANSACTION = i === 0;
         const date = new Date(data.date);
         switch (data.recurrent.frequency) {
           case TransactionFrequencyEnum.DAILY:
@@ -76,9 +79,9 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
         payloadList.push({
           ...payload,
-          id: IS_PARENT_TRANSACTION ? id : uuidv4(),
+          id: i === 0 ? id : uuidv4(),
           date: date,
-          parentId: IS_PARENT_TRANSACTION ? undefined : id
+          recurrent_transaction_id: recurrentId
         })
       }
       response = await supabase.from("transactions").insert(payloadList).select("*")

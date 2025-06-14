@@ -7,7 +7,7 @@ type Tables = Database['public']['Tables']
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
     const { id } = event.pathParameters || {};
-    if(!id) {
+    if (!id) {
       return {
         statusCode: 400,
         body: JSON.stringify({
@@ -15,13 +15,13 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         }),
       };
     }
-    
-    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
 
+    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
     const response = await supabase
       .from("transactions")
       .delete()
       .eq("id", id)
+      .eq("user_id", sub)
 
     if (response.error) {
       return {

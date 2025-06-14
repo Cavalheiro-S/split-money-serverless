@@ -5,20 +5,35 @@ import { Database } from "../../types/database/database.types";
 type Tables = Database['public']['Tables']
 type Transaction = Tables['transactions']['Row']
 
-export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
-  try {
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {  try {
     const { id } = event.pathParameters || {};
-    const { data, error } = await supabase
-      .from("transactions")
-      .select(`
-        *,
-        payment_status (*)
-      `)
-      .eq("id", id)
-      .single() as {
-        data: (Transaction & { payment_status: Tables['payment_status']['Row'] | null }) | null;
-        error: any;
+    if (!id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Invalid id",
+        }),
       };
+    }
+    
+    const { data, error } =
+      await supabase
+        .from("transactions")
+        .select(`
+        *,
+        payment_status (*),
+        categories (*),
+        tags (*)
+      `)
+        .eq("id", id)
+        .single() as {
+          data: (Transaction & {
+            payment_status: Tables['payment_status']['Row'] | null;
+            category: Tables['categories']['Row'] | null;
+            tag: Tables['tags']['Row'] | null;
+          }) | null;
+          error: any;
+        };
 
     if (error) {
       return {
@@ -26,7 +41,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         body: JSON.stringify({
           message: "Error fetching transaction",
           error: error.message,
-        }), 
+        }),
       };
     }
 
@@ -44,7 +59,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       body: JSON.stringify({
         message: "Error fetching transaction",
         error: error?.message,
-      }), 
+      }),
     };
   }
 };

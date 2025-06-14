@@ -12,7 +12,9 @@ const schema = z.object({
   date: z.coerce.date().optional(),
   amount: z.number().optional(),
   type: z.enum(["income", "outcome"]).optional(),
-  category: z.string().optional(),
+  categoryId: z.string().optional(),
+  tagId: z.string().optional(),
+  note: z.string().optional(),
   paymentStatusId: z.string().optional(),
 });
 
@@ -30,11 +32,16 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
           error
         }),
       };
-    }
-
-    const payload: TransactionUpdate = {
-      ...data,
-      updatedAt: new Date(),
+    }    const payload: TransactionUpdate = {
+      description: data.description,
+      date: data.date,
+      amount: data.amount,
+      type: data.type,
+      category_id: data.categoryId,
+      tag_id: data.tagId,
+      note: data.note,
+      payment_status_id: data.paymentStatusId,
+      updated_at: new Date(),
     };
 
     const { data: updatedTransaction, error: updateError } = await supabase
