@@ -26,9 +26,19 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
                 }),
             };
         }
+        const userId = event.requestContext.authorizer.jwt.claims.sub;
+        if (!userId || typeof userId !== 'string' || userId.length === 0) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: "Unauthorized",
+                }),
+            };
+        }
         const payload: PaymentStatusUpdate = {
-            status: data.status,
-            updatedAt: new Date(),
+            description: data.status,
+            updated_at: new Date(),
+            user_id:userId,
         }
 
         const { data: updatedPayment, error: updateError } = await supabase

@@ -42,7 +42,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
           error
         }),
       };
-    }    const payload: TransactionInsert = {
+    } const payload: TransactionInsert = {
       id,
       description: data.description,
       amount: data.amount,
@@ -55,10 +55,11 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       date: data.date,
       payment_status_id: data.paymentStatusId
     }
-    let response: PostgrestSingleResponse<Transaction[]> | undefined = undefined;    if (data.recurrent) {
+    let response: PostgrestSingleResponse<Transaction[]> | undefined = undefined;
+    if (data.recurrent) {
       // Create a recurrent transaction
       const recurrentId = uuidv4();
-      
+
       const payloadList: TransactionInsert[] = [];
       for (let i = 0; i <= data.recurrent.quantity; i++) {
         const date = new Date(data.date);
@@ -92,7 +93,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
     if (response.error) {
       console.log(response);
-      
+
       return {
         statusCode: 400,
         body: JSON.stringify({

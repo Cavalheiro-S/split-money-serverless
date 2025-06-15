@@ -9,7 +9,7 @@ type PaymentStatus = Tables['payment_status']['Row']
 type PaymentStatusInsert = Tables['payment_status']['Insert']
 
 const schema = z.object({
-    status: z.string(),
+    description: z.string(),
 })
 
 
@@ -27,11 +27,21 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
                 }),
             };
         }
+        const userId = event.requestContext.authorizer.jwt.claims.sub;
+        if( !userId || typeof userId !== 'string' || userId.length === 0) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: "Unauthorized",
+                }),
+            };
+        }
         const id = uuidv4();
         const payload: PaymentStatusInsert = {
             id,
-            status: data.status,
-            updatedAt: new Date()
+            description: data.description,
+            updated_at: new Date(),
+            user_id: userId,
         }
 
         const { data: paymentStatus, error: createError } = await supabase.from("payment_status").insert(payload).select().single() as {
