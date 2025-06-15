@@ -238,12 +238,80 @@ functions:
             path: /payment/{id}
             method: delete
             authorizer:
-              name: CognitoAuthorizer
+              name: CognitoAuthorizer  
   getPayment:
       handler: src/functions/payment-status/get-payment.handler
       events:
         - httpApi:
             path: /payment
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+
+  # Category
+  createCategory:
+      handler: src/functions/category/create-category.handler
+      events:
+        - httpApi:
+            path: /category
+            method: post
+            authorizer:
+              name: CognitoAuthorizer
+  updateCategory:
+      handler: src/functions/category/update-category.handler
+      events:
+        - httpApi:
+            path: /category/{id}
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
+  deleteCategory:
+      handler: src/functions/category/delete-category.handler
+      events:
+        - httpApi:
+            path: /category/{id}
+            method: delete
+            authorizer:
+              name: CognitoAuthorizer
+  getCategory:
+      handler: src/functions/category/get-category.handler
+      events:
+        - httpApi:
+            path: /category
+            method: get
+            authorizer:
+              name: CognitoAuthorizer
+              
+  # Tag
+  createTag:
+      handler: src/functions/tag/create-tag.handler
+      events:
+        - httpApi:
+            path: /tag
+            method: post
+            authorizer:
+              name: CognitoAuthorizer
+  updateTag:
+      handler: src/functions/tag/update-tag.handler
+      events:
+        - httpApi:
+            path: /tag/{id}
+            method: patch
+            authorizer:
+              name: CognitoAuthorizer
+  deleteTag:
+      handler: src/functions/tag/delete-tag.handler
+      events:
+        - httpApi:
+            path: /tag/{id}
+            method: delete
+            authorizer:
+              name: CognitoAuthorizer
+  getTag:
+      handler: src/functions/tag/get-tag.handler
+      events:
+        - httpApi:
+            path: /tag
             method: get
             authorizer:
               name: CognitoAuthorizer
