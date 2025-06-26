@@ -1,25 +1,32 @@
-import { CodeDeliveryFailureException, InvalidPasswordException, SignUpCommand, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
+import {
+  CodeDeliveryFailureException,
+  InvalidPasswordException,
+  SignUpCommand,
+  AdminDeleteUserCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
 import type { APIGatewayProxyEventV2 } from "aws-lambda";
 import { cognitoClient } from "../../libs/cognito";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from "bcryptjs";
 
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  name: z.string().min(2)
-})
+  name: z.string().min(2),
+});
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {
-    const { success, data, error } = schema.safeParse(JSON.parse(event.body || "{}"));
+    const { success, data, error } = schema.safeParse(
+      JSON.parse(event.body || "{}")
+    );
     if (!success) {
       return {
         statusCode: 400,
         body: JSON.stringify({
           message: "Invalid request body",
-          error: error.issues
+          error: error.issues,
         }),
       };
     }
@@ -31,43 +38,42 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       UserAttributes: [
         {
           Name: "email",
-          Value: data.email
+          Value: data.email,
         },
         {
           Name: "name",
-          Value: data.name
-        }
-      ]
-    })
+          Value: data.name,
+        },
+      ],
+    });
 
     const { UserSub } = await cognitoClient.send(command);
 
     // Hash the password with bcrypt before storing in database
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    const response = await supabase
-      .from("users")
-      .insert({
-        id: UserSub,
-        email: data.email,
-        name: data.name,
-        hashedPassword: hashedPassword, // Store hashed password instead of plain text
-        loginMethod: "cognito",
-        balance: 0,
-        updatedAt: new Date(),
-      })
+    const response = await supabase.from("users").insert({
+      id: UserSub,
+      email: data.email,
+      name: data.name,
+      password: hashedPassword,
+      login_method: "cognito",
+      updated_at: new Date(),
+    });
 
     if (response.error) {
-      await cognitoClient.send(new AdminDeleteUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        Username: data.email
-      }));
+      await cognitoClient.send(
+        new AdminDeleteUserCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID,
+          Username: data.email,
+        })
+      );
 
       return {
         statusCode: 400,
         body: JSON.stringify({
           message: "Error creating user",
-          error: response.error
+          error: response.error,
         }),
       };
     }
@@ -76,7 +82,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       statusCode: 200,
       body: JSON.stringify({
         message: "Created new User",
-        userId: UserSub
+        userId: UserSub,
       }),
     };
   } catch (error) {
@@ -85,7 +91,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         statusCode: 400,
         body: JSON.stringify({
           message: "Invalid Password",
-          error
+          error,
         }),
       };
     }
@@ -95,7 +101,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         statusCode: 400,
         body: JSON.stringify({
           message: "Code Delivery Failure",
-          error
+          error,
         }),
       };
     }
@@ -103,7 +109,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       statusCode: 500,
       body: JSON.stringify({
         message: "Error creating user",
-        error
+        error,
       }),
     };
   }
