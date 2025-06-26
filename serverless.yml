@@ -19,6 +19,7 @@ provider:
       allowedOrigins:
         - "http://localhost:3000"
         - "https://split-money.vercel.app"
+        - "https://splitmoney.com.br"
       allowedHeaders:
         - "Content-Type"
         - "Authorization"
