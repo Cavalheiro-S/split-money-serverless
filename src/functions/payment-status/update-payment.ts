@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import { Database } from "../../types/database/database.types";
+import { Database } from "../../types/database/database.type";
 
 type Tables = Database['public']['Tables']
 type PaymentStatus = Tables['payment_status']['Row']

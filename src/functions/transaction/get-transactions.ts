@@ -1,11 +1,11 @@
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { endOfMonth, format, startOfMonth } from "date-fns";
 import { z } from "zod";
-import { supabase } from "../../libs/supabase";
-import { Database } from "../../types/database/database.types";
+import { TransactionService } from "../../services/transaction.service";
+import { Database } from "../../types/database/database.type";
+import { createErrorLogger } from "../../utils/error-logger";
 
-type Tables = Database['public']['Tables']
-type Transaction = Tables['transactions']['Row']
+type Tables = Database["public"]["Tables"];
+type Transaction = Tables["transactions"]["Row"];
 
 const schema = z.object({
   page: z.coerce.number().optional().default(1),
@@ -15,98 +15,69 @@ const schema = z.object({
   status: z.string().optional(),
   categoryId: z.string().optional(),
   tagId: z.string().optional(),
-  sortBy: z.enum(["description", "date", "amount", "type", "category", "tag", "payment_status"]).optional().default("date"),
+  sortBy: z
+    .enum([
+      "description",
+      "date",
+      "amount",
+      "type",
+      "category",
+      "tag",
+      "payment_status",
+    ])
+    .optional()
+    .default("date"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
-export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {  try {
-    const { page, limit, type, date, status, categoryId, tagId, sortBy, sortOrder } = schema.parse(event.queryStringParameters || {});
+export const handler = async (
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
+) => {
+  const errorLogger = createErrorLogger({
+    requestId: event.requestContext.requestId,
+    userId: event.requestContext.authorizer.jwt.claims.sub as string,
+    functionName: 'get-transactions',
+  });
 
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit - 1;
-
-    const startDate = date ? startOfMonth(new Date(date)) : undefined;
-    const endDate = date ? endOfMonth(new Date(date)) : undefined;
-
+  try {
+    const filters = schema.parse(event.queryStringParameters || {});
     const sub = event.requestContext.authorizer.jwt.claims.sub as string;
-    let query = supabase
-      .from("transactions")
-      .select(`
-        *,
-        payment_status (*),
-        categories (*),
-        tags (*)
-      `, { count: "exact" })
-      .range(startIndex, endIndex)
-      .eq("user_id", sub)
-      .order(
-        sortBy === "payment_status"
-          ? "payment_status(description)"
-          : sortBy === "category"
-            ? "categories(description)"
-            : sortBy === "tag"
-              ? "tags(description)"
-              : sortBy,
-        { ascending: sortOrder === "asc" }
-      );
-    if (type) {
-      query = query.eq("type", type);
-    } if (status) {
-      query = query.eq("payment_status.description", status);
-    }
-
-    if (categoryId) {
-      query = query.eq("category_id", categoryId);
-    }
-
-    if (tagId) {
-      query = query.eq("tag_id", tagId);
-    }
-
-    if (startDate && endDate) {
-      query = query
-        .gte("date", format(startDate, "yyyy-MM-dd HH:mm:ss"))
-        .lte("date", format(endDate, "yyyy-MM-dd HH:mm:ss"));    }
-    
-    const { data, error, count } = await query as {
-      data: (Transaction & {
-        payment_status: Tables['payment_status']['Row'] | null;
-        category: Tables['categories']['Row'] | null;
-        tag: Tables['tags']['Row'] | null;
-      })[] | null;
-      error: any;
-      count: number;
-    };
-
-    if (error) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: "Error fetching transactions",
-          error: error.message,
-        }),
-      };
-    }
+    const service = new TransactionService();
+    const { data, pagination } = await service.get({ ...filters, userId: sub });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: "Get Transactions",
         data,
-        pagination: {
-          total: count || 0,
-          page,
-          limit,
-          totalPages: Math.ceil((count || 0) / limit),
-        },
+        pagination,
       }),
     };
   } catch (error) {
+    errorLogger.functionError('get-transactions', error, {
+      queryParams: event.queryStringParameters,
+    });
+
+    // Return appropriate error response
+    if (error instanceof z.ZodError) {
+      errorLogger.validationError('query parameters', event.queryStringParameters, 'schema validation', error);
+      
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Invalid query parameters",
+          error: "Validation error",
+          details: error.issues,
+        }),
+      };
+    }
+
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: "Unexpected error",
+        message: "Internal server error",
         error: error instanceof Error ? error.message : "Unknown error",
+        requestId: event.requestContext.requestId,
       }),
     };
   }

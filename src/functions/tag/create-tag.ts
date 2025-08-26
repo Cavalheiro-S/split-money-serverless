@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { supabase } from "../../libs/supabase";
-import { Database } from "../../types/database/database.types";
+import { Database } from "../../types/database/database.type";
 
 type Tables = Database['public']['Tables']
 type Tag = Tables['tags']['Row']

@@ -1,10 +1,10 @@
+import { PostgrestSingleResponse } from "@supabase/supabase-js";
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 import { v4 as uuidv4 } from "uuid";
-import { Schema, z } from "zod";
-import { supabase } from "../../libs/supabase";
+import { z } from "zod";
 import { TransactionFrequencyEnum } from "../../enums/transaction";
-import { PostgrestSingleResponse } from "@supabase/supabase-js";
-import { Database } from "../../types/database/database.types";
+import { supabase } from "../../libs/supabase";
+import { Database } from "../../types/database/database.type";
 import { convertToRRule } from "../../utils/rrule-converter";
 
 type Tables = Database["public"]["Tables"];
