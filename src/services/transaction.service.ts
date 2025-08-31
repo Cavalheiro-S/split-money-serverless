@@ -150,13 +150,13 @@ export class TransactionService {
         const dateStrings = dates.map((date) => format(date, "yyyy-MM-dd"));
 
         try {
+          // Verificar TODAS as transações já criadas desta recorrência
           const { data: existingTransactions, error: existingError } =
-            await supabase
+            await (supabase as any)
               .from("transactions")
               .select("date")
               .eq("user_id", recurringTransaction.user_id)
-              .eq("recurrent_transaction_id", recurringTransaction.id)
-              .in("date", dateStrings);
+              .eq("recurrent_transaction_id", recurringTransaction.id);
 
           if (existingError) {
             errorLogger.databaseError("SELECT", "transactions", existingError, {
@@ -168,7 +168,7 @@ export class TransactionService {
           }
 
           if (existingTransactions) {
-            existingTransactions.forEach((transaction) => {
+            existingTransactions.forEach((transaction: any) => {
               existingTransactionDates.add(
                 format(new Date(transaction.date), "yyyy-MM-dd")
               );
@@ -184,6 +184,7 @@ export class TransactionService {
         }
       }
 
+      // Só gerar transações futuras se não existem transações reais para essas datas
       const futureTransactions = dates
         .filter(
           (date) => !existingTransactionDates.has(format(date, "yyyy-MM-dd"))
@@ -202,12 +203,14 @@ export class TransactionService {
           payment_status: null,
           category: null,
           tag: null,
+          // Marcar como transação futura (virtual)
+          is_future: true,
         }));
 
       // Update last_generated_at
       if (futureTransactions.length > 0) {
         try {
-          const { error: updateError } = await supabase
+          const { error: updateError } = await (supabase as any)
             .from("recurring_transactions")
             .update({ last_generated_at: now })
             .eq("id", recurringTransaction.id);
@@ -340,7 +343,7 @@ export class TransactionService {
         const requestDate = filters?.date ? new Date(filters.date) : now;
 
         const { data: recurringTransactions, error: recurringError } =
-          await supabase
+          await (supabase as any)
             .from("recurring_transactions")
             .select("*")
             .eq("user_id", userId);
@@ -361,7 +364,7 @@ export class TransactionService {
 
         if (recurringTransactions && recurringTransactions.length > 0) {
           const activeRecurringTransactions = recurringTransactions.filter(
-            (transaction) => {
+            (transaction: any) => {
               const transactionStartDate = new Date(transaction.start_date);
 
               if (transaction.end_date) {
@@ -375,7 +378,7 @@ export class TransactionService {
 
           if (activeRecurringTransactions.length > 0) {
             const futureTransactionsPromises = activeRecurringTransactions.map(
-              (item) => this.generateFutureTransactions(item, filters)
+              (item: any) => this.generateFutureTransactions(item, filters)
             );
             futureTransactions = (
               await Promise.all(futureTransactionsPromises)

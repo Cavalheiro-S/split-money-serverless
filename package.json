@@ -5,7 +5,8 @@
   "main": "handler.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "sls offline --reloadHandler"
+    "dev": "sls offline --reloadHandler",
+    "test:recurring": "cd src/functions/cron && npx ts-node test-recurring-transactions.ts"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +14,7 @@
   "devDependencies": {
     "@types/uuid": "^10.0.0",
     "dotenv": "^16.5.0",
-    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless": "^4.18.1",
     "serverless-esbuild": "^1.54.6",
     "serverless-offline": "^14.4.0",
     "ts-node": "^10.9.2",

@@ -46,10 +46,10 @@ provider:
     SUPABASE_KEY: ${env:SUPABASE_KEY}
     COGNITO_CLIENT_ID: !Ref SplitMoneyUserPoolClient
 
-custom:
+build:
   esbuild:
     target: node20
-    format: esm
+    format: cjs
     minify: true
     bundle: true
     sourcemap: false
@@ -354,6 +354,24 @@ functions:
         - httpApi:
             path: /tag
             method: get
+            authorizer:
+              name: CognitoAuthorizer
+
+  # Cron Jobs
+  processRecurringTransactions:
+      handler: src/functions/cron/process-recurring-transactions.handler
+      events:
+        - schedule:
+            rate: cron(0 6 * * ? *)  # Executa todos os dias às 6:00 AM UTC
+            description: "Processa transações recorrentes diariamente"
+
+  # Trigger manual para processamento de transações recorrentes
+  triggerRecurringTransactions:
+      handler: src/functions/cron/trigger-recurring-transactions.handler
+      events:
+        - httpApi:
+            path: /admin/process-recurring-transactions
+            method: post
             authorizer:
               name: CognitoAuthorizer
   
