@@ -8,7 +8,7 @@ type PaymentStatus = Tables['payment_status']['Row']
 type PaymentStatusUpdate = Tables['payment_status']['Update']
 
 const schema = z.object({
-    status: z.string(),
+    description: z.string(),
 })
 
 
@@ -36,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
             };
         }
         const payload: PaymentStatusUpdate = {
-            description: data.status,
+            description: data.description,
             updated_at: new Date(),
             user_id:userId,
         }
