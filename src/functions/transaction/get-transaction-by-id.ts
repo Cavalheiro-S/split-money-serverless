@@ -5,7 +5,8 @@ import { Database } from "../../types/database/database.type";
 type Tables = Database['public']['Tables']
 type Transaction = Tables['transactions']['Row']
 
-export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {  try {
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
+  try {
     const { id } = event.pathParameters || {};
     if (!id) {
       return {
@@ -15,6 +16,8 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         }),
       };
     }
+
+    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
     
     const { data, error } =
       await supabase
@@ -26,6 +29,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         tags (*)
       `)
         .eq("id", id)
+        .eq("user_id", sub) // ✅ Verificação de propriedade
         .single() as {
           data: (Transaction & {
             payment_status: Tables['payment_status']['Row'] | null;
@@ -37,10 +41,19 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
     if (error) {
       return {
-        statusCode: 400,
+        statusCode: 500,
         body: JSON.stringify({
           message: "Error fetching transaction",
           error: error.message,
+        }),
+      };
+    }
+
+    if (!data) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          message: "Transaction not found",
         }),
       };
     }
@@ -55,9 +68,9 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
   }
   catch (error: any) {
     return {
-      statusCode: 400,
+      statusCode: 500,
       body: JSON.stringify({
-        message: "Error fetching transaction",
+        message: "Internal server error",
         error: error?.message,
       }),
     };

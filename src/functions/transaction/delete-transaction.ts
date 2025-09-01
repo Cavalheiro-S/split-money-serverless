@@ -11,41 +11,59 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Invalid id",
+          message: "Invalid transaction id",
         }),
       };
     }
 
     const sub = event.requestContext.authorizer.jwt.claims.sub as string;
+    
+    // ✅ Verificar se a transação existe e pertence ao usuário
+    const { data: existingTransaction, error: checkError } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", sub)
+      .single();
+
+    if (checkError || !existingTransaction) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          message: "Transaction not found or access denied",
+        }),
+      };
+    }
+
     const response = await supabase
       .from("transactions")
       .delete()
       .eq("id", id)
-      .eq("user_id", sub)
+      .eq("user_id", sub); // ✅ Verificação de propriedade
 
     if (response.error) {
       return {
-        statusCode: 400,
+        statusCode: 500,
         body: JSON.stringify({
-          message: "Error delete transaction",
+          message: "Error deleting transaction",
           error: response.error
         }),
       };
     }
 
     return {
-      statusCode: 201,
+      statusCode: 200, // ✅ Código correto para DELETE bem-sucedido
       body: JSON.stringify({
-        message: "Deleted transaction",
+        message: "Transaction deleted successfully",
       }),
     };
   }
   catch (error) {
     return {
-      statusCode: 400,
+      statusCode: 500,
       body: JSON.stringify({
-        message: "Error delete transaction",
-        error
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error"
       })
     }
   }

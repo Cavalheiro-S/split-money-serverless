@@ -168,7 +168,7 @@ export class TransactionService {
           }
 
           if (existingTransactions) {
-            existingTransactions.forEach((transaction) => {
+            existingTransactions.forEach((transaction: any) => {
               existingTransactionDates.add(
                 format(new Date(transaction.date), "yyyy-MM-dd")
               );
@@ -207,7 +207,7 @@ export class TransactionService {
       // Update last_generated_at
       if (futureTransactions.length > 0) {
         try {
-          const { error: updateError } = await supabase
+          const { error: updateError } = await (supabase as any)
             .from("recurring_transactions")
             .update({ last_generated_at: now })
             .eq("id", recurringTransaction.id);
@@ -271,14 +271,11 @@ export class TransactionService {
       userId,
     } = filters;
 
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit - 1;
-
     const startDate = date ? startOfMonth(new Date(date)) : undefined;
     const endDate = date ? endOfMonth(new Date(date)) : undefined;
-    let futureTransactions: Transaction[] = [];
 
     try {
+      // Primeiro, busque todas as transações regulares (sem paginação)
       let query = supabase
         .from("transactions")
         .select(
@@ -290,18 +287,7 @@ export class TransactionService {
                 `,
           { count: "exact" }
         )
-        .range(startIndex, endIndex)
-        .eq("user_id", userId)
-        .order(
-          sortBy === "payment_status"
-            ? "payment_status(description)"
-            : sortBy === "category"
-            ? "categories(description)"
-            : sortBy === "tag"
-            ? "tags(description)"
-            : sortBy,
-          { ascending: sortOrder === "asc" }
-        );
+        .eq("user_id", userId);
 
       if (type) {
         query = query.eq("type", type);
@@ -324,7 +310,7 @@ export class TransactionService {
         query = query.gte("date", startDateStr).lte("date", endDateStr);
       }
 
-      const { data, error, count } = await query;
+      const { data: regularTransactions, error, count } = await query;
 
       if (error) {
         errorLogger.databaseError("SELECT", "transactions", error, {
@@ -335,6 +321,8 @@ export class TransactionService {
         throw error;
       }
 
+      // Busque transações recorrentes futuras
+      let futureTransactions: Transaction[] = [];
       try {
         const now = new Date();
         const requestDate = filters?.date ? new Date(filters.date) : now;
@@ -361,7 +349,7 @@ export class TransactionService {
 
         if (recurringTransactions && recurringTransactions.length > 0) {
           const activeRecurringTransactions = recurringTransactions.filter(
-            (transaction) => {
+            (transaction: any) => {
               const transactionStartDate = new Date(transaction.start_date);
 
               if (transaction.end_date) {
@@ -394,6 +382,7 @@ export class TransactionService {
         throw recurringError;
       }
 
+      // Processe e filtre transações futuras
       const enhancedFutureTransactions = futureTransactions
         .flat()
         .map((transaction) => ({
@@ -402,10 +391,6 @@ export class TransactionService {
           is_recurring_generated: true,
           is_virtual: true,
         }));
-
-      const allTransactions = data
-        ? [...data, ...enhancedFutureTransactions]
-        : [];
 
       let filteredFutureTransactions = enhancedFutureTransactions;
 
@@ -422,18 +407,61 @@ export class TransactionService {
         });
       }
 
-      const finalTransactions = [
-        ...(data || []),
+      // Combine todas as transações
+      const allTransactions = [
+        ...(regularTransactions || []),
         ...filteredFutureTransactions,
       ];
 
+      // Aplique ordenação
+      const sortedTransactions = allTransactions.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortBy) {
+          case "payment_status":
+            aValue = (a as any).payment_status?.description || "";
+            bValue = (b as any).payment_status?.description || "";
+            break;
+          case "category":
+            aValue = (a as any).categories?.description || "";
+            bValue = (b as any).categories?.description || "";
+            break;
+          case "tag":
+            aValue = (a as any).tags?.description || "";
+            bValue = (b as any).tags?.description || "";
+            break;
+          case "date":
+            aValue = new Date(a.date);
+            bValue = new Date(b.date);
+            break;
+          case "amount":
+            aValue = a.amount;
+            bValue = b.amount;
+            break;
+          default:
+            aValue = (a as any)[sortBy] || "";
+            bValue = (b as any)[sortBy] || "";
+        }
+
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      // Aplique paginação corretamente
+      const total = sortedTransactions.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedTransactions = sortedTransactions.slice(startIndex, endIndex);
+
       return {
-        data: finalTransactions,
+        data: paginatedTransactions,
         pagination: {
-          total: finalTransactions?.length || 0,
+          total,
           page,
           limit,
-          totalPages: Math.ceil((finalTransactions?.length || 0) / limit),
+          totalPages: Math.ceil(total / limit),
         },
       };
     } catch (error) {

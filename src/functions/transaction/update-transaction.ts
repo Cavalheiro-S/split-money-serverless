@@ -21,6 +21,15 @@ const schema = z.object({
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   try {
     const { id } = event.pathParameters || {};
+    if (!id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Invalid transaction id",
+        }),
+      };
+    }
+
     const body = JSON.parse(event.body || "{}");
     const { success, data, error } = schema.safeParse(body);
 
@@ -32,7 +41,28 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
           error
         }),
       };
-    }    const payload: TransactionUpdate = {
+    }
+
+    const sub = event.requestContext.authorizer.jwt.claims.sub as string;
+    
+    // ✅ Verificar se a transação existe e pertence ao usuário
+    const { data: existingTransaction, error: checkError } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", sub)
+      .single();
+
+    if (checkError || !existingTransaction) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          message: "Transaction not found or access denied",
+        }),
+      };
+    }
+
+    const payload: TransactionUpdate = {
       description: data.description,
       date: data.date,
       amount: data.amount,
@@ -44,10 +74,11 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       updated_at: new Date(),
     };
 
-    const { data: updatedTransaction, error: updateError } = await supabase
+    const { data: updatedTransaction, error: updateError } = await (supabase as any)
       .from("transactions")
       .update(payload)
       .eq("id", id)
+      .eq("user_id", sub) // ✅ Verificação de propriedade
       .select()
       .single() as { 
         data: Transaction | null;
@@ -56,7 +87,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
     if (updateError) {
       return {
-        statusCode: 400,
+        statusCode: 500,
         body: JSON.stringify({
           message: "Error updating transaction",
           error: updateError
@@ -67,17 +98,17 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Update transaction",
+        message: "Transaction updated successfully",
         data: updatedTransaction
       }),
     };
   }
   catch (error) {
     return {
-      statusCode: 400,
+      statusCode: 500,
       body: JSON.stringify({
-        message: "Error updating transaction",
-        error
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error"
       })
     }
   }

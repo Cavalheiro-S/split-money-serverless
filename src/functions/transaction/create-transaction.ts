@@ -64,7 +64,7 @@ export const handler = async (
       const { frequency, quantity } = data.recurrent;
       const { paymentStatusId, tagId, categoryId, date, recurrent, ...recurringDate } = data;
       const rrule = convertToRRule(frequency, quantity);
-      const responseRecurring = await supabase
+      const responseRecurring = await (supabase as any)
         .from("recurring_transactions")
         .insert({
           ...recurringDate,
@@ -85,45 +85,43 @@ export const handler = async (
         };
       }
 
-      response = await supabase.from("transactions").insert({
+      response = await (supabase as any).from("transactions").insert({
         ...payload,
         recurrent_transaction_id: responseRecurring.data[0].id,
       }).select("*");
 
     } else {
-      response = await supabase
+      response = await (supabase as any)
         .from("transactions")
         .insert(payload)
         .select("*");
     }
 
     if (response?.error) {
-      console.log(response);
-
+      console.error("Error creating transaction:", response.error);
       return {
-        statusCode: 400,
+        statusCode: 500,
         body: JSON.stringify({
           message: "Error creating transaction",
-          error: response.error,
+          error: response.error.message || "Unknown database error",
         }),
       };
     }
 
     return {
-      statusCode: 200,
+      statusCode: 201, // ✅ Código correto para criação bem-sucedida
       body: JSON.stringify({
-        message: "Create new Transaction",
+        message: "Transaction created successfully",
         data: response?.data,
       }),
     };
   } catch (error) {
-    console.log({ error });
-
+    console.error("Unexpected error creating transaction:", error);
     return {
-      statusCode: 400,
+      statusCode: 500,
       body: JSON.stringify({
-        message: "Error creating transaction",
-        error,
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error",
       }),
     };
   }
