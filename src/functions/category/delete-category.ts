@@ -41,6 +41,35 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
             };
         }
 
+        // Check if there are any transactions using this category
+        const { data: transactionsUsingCategory, error: transactionCheckError } = await supabase
+            .from("transactions")
+            .select("id")
+            .eq("category_id", id)
+            .eq("user_id", userId)
+            .limit(1);
+
+        if (transactionCheckError) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: "Error checking category dependencies",
+                    error: transactionCheckError
+                }),
+            };
+        }
+
+        if (transactionsUsingCategory && transactionsUsingCategory.length > 0) {
+            return {
+                statusCode: 409,
+                body: JSON.stringify({
+                    message: "Cannot delete category with dependent transactions",
+                    code: "CATEGORY_HAS_DEPENDENT_TRANSACTIONS",
+                }),
+            };
+        }
+
+
         const { error: deleteError } = await supabase
             .from("categories")
             .delete()
