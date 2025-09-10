@@ -4,8 +4,9 @@ import { supabase } from "../../libs/supabase";
 import { Database } from "../../types/database/database.type";  
 
 type Tables = Database['public']['Tables']
-type Transaction = Tables['transactions']['Row']
+type TransactionRow = Tables['transactions']['Row']
 type TransactionUpdate = Tables['transactions']['Update']
+type RecurringTransactionUpdate = Tables['recurring_transactions']['Update']
 
 const schema = z.object({
   description: z.string().optional(),
@@ -45,13 +46,13 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
 
     const sub = event.requestContext.authorizer.jwt.claims.sub as string;
     
-    // ✅ Verificar se a transação existe e pertence ao usuário
+    // ✅ Verificar se a transação existe e pertence ao usuário, incluindo recurrent_transaction_id
     const { data: existingTransaction, error: checkError } = await supabase
       .from("transactions")
-      .select("id")
+      .select("id, recurrent_transaction_id")
       .eq("id", id)
       .eq("user_id", sub)
-      .single();
+      .single() as { data: { id: string; recurrent_transaction_id: string | null } | null; error: any };
 
     if (checkError || !existingTransaction) {
       return {
@@ -81,7 +82,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
       .eq("user_id", sub) // ✅ Verificação de propriedade
       .select()
       .single() as { 
-        data: Transaction | null;
+        data: TransactionRow | null;
         error: any;
       };
 
@@ -93,6 +94,30 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
           error: updateError
         }),
       };
+    }
+
+    // ✅ Se a transação tem recurrent_transaction_id, atualizar também a transação recorrente
+    if (existingTransaction && existingTransaction.recurrent_transaction_id) {
+      const recurringPayload: any = {};
+      
+      if (data.description !== undefined) recurringPayload.description = data.description;
+      if (data.amount !== undefined) recurringPayload.amount = data.amount;
+      if (data.type !== undefined) recurringPayload.type = data.type;
+      if (data.note !== undefined) recurringPayload.note = data.note;
+      
+      recurringPayload.updated_at = new Date();
+
+      const { error: recurringUpdateError } = await (supabase as any)
+        .from("recurring_transactions")
+        .update(recurringPayload)
+        .eq("id", existingTransaction.recurrent_transaction_id)
+        .eq("user_id", sub); // ✅ Verificação de propriedade
+
+      if (recurringUpdateError) {
+        console.error("Error updating recurring transaction:", recurringUpdateError);
+        // Não retornamos erro aqui para não quebrar a atualização da transação principal
+        // mas logamos o erro para debug
+      }
     }
 
     return {
