@@ -9,7 +9,7 @@ type Category = Tables['categories']['Row']
 type CategoryInsert = Tables['categories']['Insert']
 
 const schema = z.object({
-    description: z.string(),
+    description: z.string().min(3).max(50),
 })
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {

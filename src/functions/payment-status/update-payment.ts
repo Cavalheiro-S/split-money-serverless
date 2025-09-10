@@ -8,7 +8,7 @@ type PaymentStatus = Tables['payment_status']['Row']
 type PaymentStatusUpdate = Tables['payment_status']['Update']
 
 const schema = z.object({
-    description: z.string(),
+    description: z.string().min(3).max(50),
 })
 
 

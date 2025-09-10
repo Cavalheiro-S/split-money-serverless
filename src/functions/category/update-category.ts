@@ -9,7 +9,7 @@ type CategoryUpdate = Tables['categories']['Update']
 
 const schema = z.object({
     id: z.string(),
-    description: z.string(),
+    description: z.string().min(3).max(50),
 })
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {

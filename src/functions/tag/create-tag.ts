@@ -9,7 +9,7 @@ type Tag = Tables['tags']['Row']
 type TagInsert = Tables['tags']['Insert']
 
 const schema = z.object({
-    description: z.string(),
+    description: z.string().min(3).max(50),
 })
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {

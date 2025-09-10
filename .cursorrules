@@ -1,0 +1,62 @@
+# Cursor Rules for Split Money Serverless Project
+
+## Commit Message Rules
+
+When generating commit messages, always follow these rules:
+
+1. **Language**: All commit messages MUST be written in English
+2. **Format**: Follow Conventional Commits specification
+3. **Structure**: Use the format: `<type>(<scope>): <description>`
+
+### Commit Types
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries
+- `ci`: Changes to our CI configuration files and scripts
+- `build`: Changes that affect the build system or external dependencies
+- `revert`: Reverts a previous commit
+
+### Scopes (based on project structure)
+- `auth`: Authentication related changes
+- `category`: Category management
+- `payment`: Payment status management
+- `tag`: Tag management
+- `transaction`: Transaction management
+- `user`: User management
+- `config`: Configuration changes
+- `deps`: Dependencies updates
+
+### Examples
+- `feat(auth): add OAuth2 authentication support`
+- `fix(transaction): resolve calculation error in split amounts`
+- `docs: update API documentation for user endpoints`
+- `refactor(category): improve category validation logic`
+- `chore(deps): update serverless framework to v3.0`
+
+### Rules for Commit Messages
+- Use imperative mood ("add feature" not "added feature")
+- Keep the description under 50 characters
+- Capitalize the first letter of the description
+- Do not end the description with a period
+- Use present tense ("change" not "changed")
+- Be specific and descriptive about what was changed
+
+### Breaking Changes
+If the commit introduces a breaking change, add `BREAKING CHANGE:` in the footer:
+```
+feat(api): change user authentication flow
+
+BREAKING CHANGE: The user authentication endpoint now requires additional parameters
+```
+
+## Code Style Rules
+- Use TypeScript for all new code
+- Follow existing project structure and patterns
+- Use meaningful variable and function names
+- Add proper error handling
+- Include JSDoc comments for public functions
