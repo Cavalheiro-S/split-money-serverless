@@ -150,13 +150,13 @@ export class TransactionService {
         const dateStrings = dates.map((date) => format(date, "yyyy-MM-dd"));
 
         try {
+          // Verificar transações existentes para esta transação recorrente
           const { data: existingTransactions, error: existingError } =
             await supabase
               .from("transactions")
               .select("date")
               .eq("user_id", recurringTransaction.user_id)
-              .eq("recurrent_transaction_id", recurringTransaction.id)
-              .in("date", dateStrings);
+              .eq("recurrent_transaction_id", recurringTransaction.id);
 
           if (existingError) {
             errorLogger.databaseError("SELECT", "transactions", existingError, {
@@ -407,14 +407,36 @@ export class TransactionService {
         });
       }
 
-      // Combine todas as transações
+      // Combine todas as transações e remova duplicatas
       const allTransactions = [
         ...(regularTransactions || []),
         ...filteredFutureTransactions,
       ];
 
+      // Remover duplicatas baseado em ID, data e descrição
+      const uniqueTransactions = allTransactions.reduce((acc: any[], current: any) => {
+        const isDuplicate = acc.some((existing: any) => {
+          // Se é uma transação real, não pode ter duplicata virtual
+          if (existing.recurrent_transaction_id && current.recurrent_transaction_id) {
+            return existing.recurrent_transaction_id === current.recurrent_transaction_id &&
+                   format(new Date(existing.date), "yyyy-MM-dd") === format(new Date(current.date), "yyyy-MM-dd");
+          }
+          // Se é uma transação virtual, verificar se já existe uma real para a mesma data
+          if (current.is_virtual && !existing.is_virtual) {
+            return existing.recurrent_transaction_id === current.recurrent_transaction_id &&
+                   format(new Date(existing.date), "yyyy-MM-dd") === format(new Date(current.date), "yyyy-MM-dd");
+          }
+          return false;
+        });
+
+        if (!isDuplicate) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+
       // Aplique ordenação
-      const sortedTransactions = allTransactions.sort((a, b) => {
+      const sortedTransactions = uniqueTransactions.sort((a, b) => {
         let aValue: any;
         let bValue: any;
 

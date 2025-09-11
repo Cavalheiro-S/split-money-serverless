@@ -25,7 +25,7 @@ export const handler = async (
       .select("id, recurrent_transaction_id")
       .eq("id", id)
       .eq("user_id", sub)
-      .single();
+      .single() as { data: { id: string; recurrent_transaction_id: string | null } | null; error: any };
 
     if (checkError || !existingTransaction) {
       return {
