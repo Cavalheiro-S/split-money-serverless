@@ -9,7 +9,13 @@
 
 ## 📋 Sobre o Projeto
 
-O **Split Money Serverless** é uma aplicação financeira robusta que permite aos usuários gerenciar despesas compartilhadas de forma eficiente. Com funcionalidades avançadas de autenticação, transações recorrentes, categorização e controle de pagamentos, a aplicação oferece uma solução completa para o gerenciamento financeiro pessoal e em grupo.
+O **Split Money Serverless** é o backend de uma aplicação financeira robusta que permite aos usuários gerenciar despesas compartilhadas de forma eficiente. Com funcionalidades avançadas de autenticação, transações recorrentes, categorização e controle de pagamentos, a aplicação oferece uma solução completa para o gerenciamento financeiro pessoal e em grupo.
+
+### 🔗 Projetos Relacionados
+
+- **Frontend**: [split-money](https://github.com/Cavalheiro-S/split-money) - Interface Next.js
+- **Aplicação Live**: [split-money.vercel.app](https://split-money.vercel.app)
+- **Backend**: Este repositório (split-money-serverless)
 
 ### ✨ Principais Características
 
@@ -77,7 +83,22 @@ O **Split Money Serverless** é uma aplicação financeira robusta que permite a
 - `PUT /payment/{id}` - Atualização de status de pagamento
 - `DELETE /payment/{id}` - Exclusão de status de pagamento
 
-## 📁 Estrutura do Projeto
+## 🏗️ Arquitetura do Sistema
+
+O Split Money é composto por dois repositórios principais:
+
+### 🖥️ Frontend (Next.js)
+- **Repositório**: [split-money](https://github.com/Cavalheiro-S/split-money)
+- **Deploy**: [split-money.vercel.app](https://split-money.vercel.app)
+- **Tecnologias**: Next.js, TypeScript, Tailwind CSS
+- **Funcionalidades**: Interface de usuário, autenticação, gerenciamento de transações
+
+### ⚙️ Backend (Serverless)
+- **Repositório**: Este repositório (split-money-serverless)
+- **Tecnologias**: AWS Lambda, TypeScript, Supabase
+- **Funcionalidades**: API REST, autenticação, banco de dados
+
+## 📁 Estrutura do Projeto Backend
 
 ```
 src/
@@ -94,6 +115,20 @@ src/
 ├── services/             # ⚙️ Serviços de negócio
 ├── utils/                # 🛠️ Utilitários
 └── enums/                # 📋 Enumerações
+```
+
+## 🔗 Integração Frontend + Backend
+
+O frontend Next.js consome as APIs do backend serverless através de:
+
+- **Autenticação**: AWS Cognito para login e autorização
+- **API REST**: Endpoints serverless para todas as operações
+- **Banco de Dados**: Supabase PostgreSQL compartilhado
+- **Deploy**: Frontend na Vercel, Backend na AWS
+
+### 📡 Fluxo de Dados
+```
+Frontend (Next.js) → API Gateway → Lambda Functions → Supabase
 ```
 
 ## 🚀 Como Executar
