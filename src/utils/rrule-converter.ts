@@ -1,12 +1,12 @@
-import { RRule } from "rrule";
-import { TransactionFrequencyEnum } from "../enums/transaction";
+import { RRule } from 'rrule';
+import { TransactionFrequencyEnum } from '../enums/transaction';
 
 export const convertToRRule = (
   frequency: TransactionFrequencyEnum,
   count: number = 1
 ): string => {
   if (count <= 0) {
-    throw new Error("Interval must be a positive number");
+    throw new Error('Interval must be a positive number');
   }
 
   const frequencyMap = {
@@ -18,8 +18,8 @@ export const convertToRRule = (
 
   const rule = new RRule({
     freq: frequencyMap[frequency],
-    count: count,
+    count,
   });
 
-  return rule.toString().replace("RRULE:", "");
+  return rule.toString().replace('RRULE:', '');
 };

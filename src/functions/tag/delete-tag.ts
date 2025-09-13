@@ -1,6 +1,6 @@
-import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { z } from "zod";
-import { supabase } from "../../libs/supabase";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
+import { z } from 'zod';
+import { supabase } from '../../libs/supabase';
 
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer
@@ -11,34 +11,34 @@ export const handler = async (
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Invalid id",
+          message: 'Invalid id',
         }),
       };
     }
 
     const userId = event.requestContext.authorizer.jwt.claims.sub;
-    if (!userId || typeof userId !== "string" || userId.length === 0) {
+    if (!userId || typeof userId !== 'string' || userId.length === 0) {
       return {
         statusCode: 401,
         body: JSON.stringify({
-          message: "Unauthorized",
+          message: 'Unauthorized',
         }),
       };
     }
 
     // First check if the tag exists and belongs to the user
     const { data: existingTag, error: fetchError } = await supabase
-      .from("tags")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", userId)
+      .from('tags')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
       .single();
 
     if (fetchError || !existingTag) {
       return {
         statusCode: 404,
         body: JSON.stringify({
-          message: "Tag not found or unauthorized",
+          message: 'Tag not found or unauthorized',
           error: fetchError,
         }),
       };
@@ -47,17 +47,17 @@ export const handler = async (
     // Check if there are any transactions using this tag
     const { data: transactionsUsingTag, error: transactionCheckError } =
       await supabase
-        .from("transactions")
-        .select("id")
-        .eq("tag_id", id)
-        .eq("user_id", userId)
+        .from('transactions')
+        .select('id')
+        .eq('tag_id', id)
+        .eq('user_id', userId)
         .limit(1);
 
     if (transactionCheckError) {
       return {
         statusCode: 500,
         body: JSON.stringify({
-          message: "Error checking tag dependencies",
+          message: 'Error checking tag dependencies',
           error: transactionCheckError,
         }),
       };
@@ -67,24 +67,23 @@ export const handler = async (
       return {
         statusCode: 409,
         body: JSON.stringify({
-          message: "Cannot delete tag with dependent transactions",
-          code: "TAG_HAS_DEPENDENT_TRANSACTIONS",
+          message: 'Cannot delete tag with dependent transactions',
+          code: 'TAG_HAS_DEPENDENT_TRANSACTIONS',
         }),
       };
     }
 
-
     const { error: deleteError } = await supabase
-      .from("tags")
+      .from('tags')
       .delete()
-      .eq("id", id)
-      .eq("user_id", userId);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (deleteError) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Error deleting tag",
+          message: 'Error deleting tag',
           error: deleteError,
         }),
       };
@@ -93,8 +92,8 @@ export const handler = async (
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Tag deleted successfully",
-        id: id,
+        message: 'Tag deleted successfully',
+        id,
       }),
     };
   } catch (error) {
@@ -103,7 +102,7 @@ export const handler = async (
     return {
       statusCode: 400,
       body: JSON.stringify({
-        message: "Error deleting tag",
+        message: 'Error deleting tag',
         error,
       }),
     };

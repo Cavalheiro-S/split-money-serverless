@@ -35,16 +35,21 @@ export class Logger {
   }
 
   error(message: string, error?: any, data?: any): void {
-    const errorData = error instanceof Error ? {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    } : error;
+    const errorData =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          }
+        : error;
 
-    console.error(this.formatMessage('ERROR', message, {
-      error: errorData,
-      ...(data && { additionalData: data }),
-    }));
+    console.error(
+      this.formatMessage('ERROR', message, {
+        error: errorData,
+        ...(data && { additionalData: data }),
+      })
+    );
   }
 
   debug(message: string, data?: any): void {

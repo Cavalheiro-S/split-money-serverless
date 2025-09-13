@@ -18,12 +18,20 @@ export class ErrorLogger {
     };
   }
 
-  private formatErrorLog(level: 'ERROR' | 'WARN', message: string, error: any, additionalData?: any): string {
-    const errorData = error instanceof Error ? {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    } : error;
+  private formatErrorLog(
+    level: 'ERROR' | 'WARN',
+    message: string,
+    error: any,
+    additionalData?: any
+  ): string {
+    const errorData =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          }
+        : error;
 
     const logEntry = {
       level,
@@ -57,7 +65,12 @@ export class ErrorLogger {
   }
 
   // Log de erro de banco de dados
-  databaseError(operation: string, table: string, error: any, query?: any): void {
+  databaseError(
+    operation: string,
+    table: string,
+    error: any,
+    query?: any
+  ): void {
     this.error(`Database error in ${operation}`, error, {
       operation,
       table,
@@ -76,7 +89,12 @@ export class ErrorLogger {
   }
 
   // Log de erro de API
-  apiError(endpoint: string, method: string, error: any, requestData?: any): void {
+  apiError(
+    endpoint: string,
+    method: string,
+    error: any,
+    requestData?: any
+  ): void {
     this.error(`API error: ${method} ${endpoint}`, error, {
       endpoint,
       method,
@@ -95,7 +113,12 @@ export class ErrorLogger {
   }
 
   // Log de erro de integração externa
-  integrationError(service: string, operation: string, error: any, requestData?: any): void {
+  integrationError(
+    service: string,
+    operation: string,
+    error: any,
+    requestData?: any
+  ): void {
     this.error(`Integration error: ${service} - ${operation}`, error, {
       service,
       operation,
@@ -106,11 +129,15 @@ export class ErrorLogger {
 
   // Log de erro de timeout
   timeoutError(operation: string, timeout: number, error?: any): void {
-    this.error(`Timeout error in ${operation}`, error || new Error(`Operation timed out after ${timeout}ms`), {
-      operation,
-      timeout,
-      type: 'timeout',
-    });
+    this.error(
+      `Timeout error in ${operation}`,
+      error || new Error(`Operation timed out after ${timeout}ms`),
+      {
+        operation,
+        timeout,
+        type: 'timeout',
+      }
+    );
   }
 
   // Log de erro de memória
@@ -138,7 +165,11 @@ export function createErrorLogger(context: ErrorLogContext): ErrorLogger {
 }
 
 // Função helper para log rápido de erro
-export function logError(message: string, error: any, context?: ErrorLogContext): void {
+export function logError(
+  message: string,
+  error: any,
+  context?: ErrorLogContext
+): void {
   const logger = createErrorLogger(context || {});
   logger.error(message, error);
 }

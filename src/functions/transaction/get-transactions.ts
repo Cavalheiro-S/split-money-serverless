@@ -1,33 +1,33 @@
-import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
-import { z } from "zod";
-import { TransactionService } from "../../services/transaction.service";
-import { Database } from "../../types/database/database.type";
-import { createErrorLogger } from "../../utils/error-logger";
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
+import { z } from 'zod';
+import { TransactionService } from '../../services/transaction.service';
+import { Database } from '../../types/database/database.type';
+import { createErrorLogger } from '../../utils/error-logger';
 
-type Tables = Database["public"]["Tables"];
-type Transaction = Tables["transactions"]["Row"];
+type Tables = Database['public']['Tables'];
+type Transaction = Tables['transactions']['Row'];
 
 const schema = z.object({
   page: z.coerce.number().optional().default(1),
   limit: z.coerce.number().optional().default(10),
-  type: z.enum(["income", "outcome"]).optional(),
+  type: z.enum(['income', 'outcome']).optional(),
   date: z.string().optional(),
   status: z.string().optional(),
   categoryId: z.string().optional(),
   tagId: z.string().optional(),
   sortBy: z
     .enum([
-      "description",
-      "date",
-      "amount",
-      "type",
-      "category",
-      "tag",
-      "payment_status",
+      'description',
+      'date',
+      'amount',
+      'type',
+      'category',
+      'tag',
+      'payment_status',
     ])
     .optional()
-    .default("date"),
-  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+    .default('date'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 export const handler = async (
@@ -48,7 +48,7 @@ export const handler = async (
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: "Get Transactions",
+        message: 'Get Transactions',
         data,
         pagination,
       }),
@@ -60,13 +60,18 @@ export const handler = async (
 
     // Return appropriate error response
     if (error instanceof z.ZodError) {
-      errorLogger.validationError('query parameters', event.queryStringParameters, 'schema validation', error);
-      
+      errorLogger.validationError(
+        'query parameters',
+        event.queryStringParameters,
+        'schema validation',
+        error
+      );
+
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: "Invalid query parameters",
-          error: "Validation error",
+          message: 'Invalid query parameters',
+          error: 'Validation error',
           details: error.issues,
         }),
       };
@@ -75,8 +80,8 @@ export const handler = async (
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error",
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
         requestId: event.requestContext.requestId,
       }),
     };

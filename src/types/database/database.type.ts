@@ -1,8 +1,8 @@
-import { Transaction } from "./transaction.type"
-import { PaymentStatus } from "./payment-status.type"
-import { Category } from "./category.type"
-import { Tag } from "./tag.type"
-import { RecurringTransaction } from "./recurring-transaction.type"
+import { Transaction } from './transaction.type';
+import { PaymentStatus } from './payment-status.type';
+import { Category } from './category.type';
+import { Tag } from './tag.type';
+import { RecurringTransaction } from './recurring-transaction.type';
 
 export type Json =
   | string
@@ -10,16 +10,16 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
 export interface Database {
   public: {
     Tables: {
-      transactions: Transaction
-      payment_status: PaymentStatus
-      categories: Category
-      tags: Tag
-      recurring_transactions: RecurringTransaction
-    }
-  }
+      transactions: Transaction;
+      payment_status: PaymentStatus;
+      categories: Category;
+      tags: Tag;
+      recurring_transactions: RecurringTransaction;
+    };
+  };
 }

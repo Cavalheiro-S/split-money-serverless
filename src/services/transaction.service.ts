@@ -5,36 +5,36 @@ import {
   isAfter,
   isEqual,
   startOfMonth,
-} from "date-fns";
-import { RRule } from "rrule";
-import { supabase } from "../libs/supabase";
-import { Database } from "../types/database/database.type";
-import { ExtendedTransaction } from "../types/database/transaction.type";
-import { createErrorLogger } from "../utils/error-logger";
+} from 'date-fns';
+import { RRule } from 'rrule';
+import { supabase } from '../libs/supabase';
+import { Database } from '../types/database/database.type';
+import { ExtendedTransaction } from '../types/database/transaction.type';
+import { createErrorLogger } from '../utils/error-logger';
 
 type Filters = {
   page?: number;
   limit?: number;
-  type?: "income" | "outcome";
+  type?: 'income' | 'outcome';
   date?: string; // ISO date string
   status?: string; // e.g., "paid", "pending"
   categoryId?: string;
   tagId?: string;
   sortBy?:
-    | "description"
-    | "date"
-    | "amount"
-    | "type"
-    | "category"
-    | "tag"
-    | "payment_status";
-  sortOrder?: "asc" | "desc";
+    | 'description'
+    | 'date'
+    | 'amount'
+    | 'type'
+    | 'category'
+    | 'tag'
+    | 'payment_status';
+  sortOrder?: 'asc' | 'desc';
   userId: string;
 };
 
-type Tables = Database["public"]["Tables"];
-type Transaction = Tables["transactions"]["Row"];
-type RecurringTransaction = Tables["recurring_transactions"]["Row"];
+type Tables = Database['public']['Tables'];
+type Transaction = Tables['transactions']['Row'];
+type RecurringTransaction = Tables['recurring_transactions']['Row'];
 
 export class TransactionService {
   private async generateFutureTransactions(
@@ -49,7 +49,7 @@ export class TransactionService {
   > {
     const errorLogger = createErrorLogger({
       userId: recurringTransaction.user_id,
-      functionName: "generateFutureTransactions",
+      functionName: 'generateFutureTransactions',
     });
 
     const now = new Date();
@@ -133,36 +133,34 @@ export class TransactionService {
       }
 
       let dates = allDates.filter(
-        (date) => date >= searchStartDate && date <= searchEndDate
+        date => date >= searchStartDate && date <= searchEndDate
       );
 
       if (filters?.date) {
         // Include all dates for specific date requests
       } else {
-        dates = dates.filter(
-          (date) => isAfter(date, now) || isEqual(date, now)
-        );
+        dates = dates.filter(date => isAfter(date, now) || isEqual(date, now));
       }
 
       const existingTransactionDates = new Set<string>();
 
       if (dates.length > 0) {
-        const dateStrings = dates.map((date) => format(date, "yyyy-MM-dd"));
+        const dateStrings = dates.map(date => format(date, 'yyyy-MM-dd'));
 
         try {
           // Verificar transações existentes para esta transação recorrente
           const { data: existingTransactions, error: existingError } =
             await supabase
-              .from("transactions")
-              .select("date")
-              .eq("user_id", recurringTransaction.user_id)
-              .eq("recurrent_transaction_id", recurringTransaction.id);
+              .from('transactions')
+              .select('date')
+              .eq('user_id', recurringTransaction.user_id)
+              .eq('recurrent_transaction_id', recurringTransaction.id);
 
           if (existingError) {
-            errorLogger.databaseError("SELECT", "transactions", existingError, {
+            errorLogger.databaseError('SELECT', 'transactions', existingError, {
               recurringTransactionId: recurringTransaction.id,
               userId: recurringTransaction.user_id,
-              query: "check existing transactions",
+              query: 'check existing transactions',
             });
             throw existingError;
           }
@@ -170,12 +168,12 @@ export class TransactionService {
           if (existingTransactions) {
             existingTransactions.forEach((transaction: any) => {
               existingTransactionDates.add(
-                format(new Date(transaction.date), "yyyy-MM-dd")
+                format(new Date(transaction.date), 'yyyy-MM-dd')
               );
             });
           }
         } catch (checkError) {
-          errorLogger.functionError("checkExistingTransactions", checkError, {
+          errorLogger.functionError('checkExistingTransactions', checkError, {
             recurringTransactionId: recurringTransaction.id,
             userId: recurringTransaction.user_id,
             dates: dateStrings,
@@ -186,14 +184,14 @@ export class TransactionService {
 
       const futureTransactions = dates
         .filter(
-          (date) => !existingTransactionDates.has(format(date, "yyyy-MM-dd"))
+          date => !existingTransactionDates.has(format(date, 'yyyy-MM-dd'))
         )
-        .map((date) => ({
+        .map(date => ({
           id: crypto.randomUUID(),
           description: recurringTransaction.description,
           type: recurringTransaction.type,
           amount: recurringTransaction.amount,
-          date: date,
+          date,
           note: recurringTransaction.note,
           user_id: recurringTransaction.user_id,
           recurrent_transaction_id: recurringTransaction.id,
@@ -208,23 +206,23 @@ export class TransactionService {
       if (futureTransactions.length > 0) {
         try {
           const { error: updateError } = await (supabase as any)
-            .from("recurring_transactions")
+            .from('recurring_transactions')
             .update({ last_generated_at: now })
-            .eq("id", recurringTransaction.id);
+            .eq('id', recurringTransaction.id);
 
           if (updateError) {
             errorLogger.databaseError(
-              "UPDATE",
-              "recurring_transactions",
+              'UPDATE',
+              'recurring_transactions',
               updateError,
               {
                 recurringTransactionId: recurringTransaction.id,
-                operation: "update last_generated_at",
+                operation: 'update last_generated_at',
               }
             );
           }
         } catch (updateError) {
-          errorLogger.functionError("updateLastGeneratedAt", updateError, {
+          errorLogger.functionError('updateLastGeneratedAt', updateError, {
             recurringTransactionId: recurringTransaction.id,
           });
         }
@@ -232,7 +230,7 @@ export class TransactionService {
 
       return futureTransactions;
     } catch (error) {
-      errorLogger.functionError("generateFutureTransactions", error, {
+      errorLogger.functionError('generateFutureTransactions', error, {
         recurringTransaction: {
           id: recurringTransaction.id,
           description: recurringTransaction.description,
@@ -255,7 +253,7 @@ export class TransactionService {
   }> {
     const errorLogger = createErrorLogger({
       userId: filters.userId,
-      functionName: "TransactionService.get",
+      functionName: 'TransactionService.get',
     });
 
     const {
@@ -266,8 +264,8 @@ export class TransactionService {
       status,
       categoryId,
       tagId,
-      sortBy = "date",
-      sortOrder = "desc",
+      sortBy = 'date',
+      sortOrder = 'desc',
       userId,
     } = filters;
 
@@ -277,7 +275,7 @@ export class TransactionService {
     try {
       // Primeiro, busque todas as transações regulares (sem paginação)
       let query = supabase
-        .from("transactions")
+        .from('transactions')
         .select(
           `
                   *,
@@ -285,38 +283,38 @@ export class TransactionService {
                   categories (*),
                   tags (*)
                 `,
-          { count: "exact" }
+          { count: 'exact' }
         )
-        .eq("user_id", userId);
+        .eq('user_id', userId);
 
       if (type) {
-        query = query.eq("type", type);
+        query = query.eq('type', type);
       }
       if (status) {
-        query = query.eq("payment_status.description", status);
+        query = query.eq('payment_status.description', status);
       }
 
       if (categoryId) {
-        query = query.eq("category_id", categoryId);
+        query = query.eq('category_id', categoryId);
       }
 
       if (tagId) {
-        query = query.eq("tag_id", tagId);
+        query = query.eq('tag_id', tagId);
       }
 
       if (startDate && endDate) {
-        const startDateStr = format(startDate, "yyyy-MM-dd HH:mm:ss");
-        const endDateStr = format(endDate, "yyyy-MM-dd HH:mm:ss");
-        query = query.gte("date", startDateStr).lte("date", endDateStr);
+        const startDateStr = format(startDate, 'yyyy-MM-dd HH:mm:ss');
+        const endDateStr = format(endDate, 'yyyy-MM-dd HH:mm:ss');
+        query = query.gte('date', startDateStr).lte('date', endDateStr);
       }
 
       const { data: regularTransactions, error, count } = await query;
 
       if (error) {
-        errorLogger.databaseError("SELECT", "transactions", error, {
+        errorLogger.databaseError('SELECT', 'transactions', error, {
           userId,
           filters,
-          query: "transactions with joins",
+          query: 'transactions with joins',
         });
         throw error;
       }
@@ -329,19 +327,19 @@ export class TransactionService {
 
         const { data: recurringTransactions, error: recurringError } =
           await supabase
-            .from("recurring_transactions")
-            .select("*")
-            .eq("user_id", userId);
+            .from('recurring_transactions')
+            .select('*')
+            .eq('user_id', userId);
 
         if (recurringError) {
           errorLogger.databaseError(
-            "SELECT",
-            "recurring_transactions",
+            'SELECT',
+            'recurring_transactions',
             recurringError,
             {
               userId,
-              requestDate: format(requestDate, "yyyy-MM-dd"),
-              query: "recurring_transactions",
+              requestDate: format(requestDate, 'yyyy-MM-dd'),
+              query: 'recurring_transactions',
             }
           );
           throw recurringError;
@@ -363,7 +361,7 @@ export class TransactionService {
 
           if (activeRecurringTransactions.length > 0) {
             const futureTransactionsPromises = activeRecurringTransactions.map(
-              (item) => this.generateFutureTransactions(item, filters)
+              item => this.generateFutureTransactions(item, filters)
             );
             futureTransactions = (
               await Promise.all(futureTransactionsPromises)
@@ -372,7 +370,7 @@ export class TransactionService {
         }
       } catch (recurringError) {
         errorLogger.functionError(
-          "processRecurringTransactions",
+          'processRecurringTransactions',
           recurringError,
           {
             userId,
@@ -385,7 +383,7 @@ export class TransactionService {
       // Processe e filtre transações futuras
       const enhancedFutureTransactions = futureTransactions
         .flat()
-        .map((transaction) => ({
+        .map(transaction => ({
           ...transaction,
           recurring_transactions: null,
           is_recurring_generated: true,
@@ -396,12 +394,12 @@ export class TransactionService {
 
       if (type) {
         filteredFutureTransactions = filteredFutureTransactions.filter(
-          (t) => t.type === type
+          t => t.type === type
         );
       }
 
       if (startDate && endDate) {
-        filteredFutureTransactions = filteredFutureTransactions.filter((t) => {
+        filteredFutureTransactions = filteredFutureTransactions.filter(t => {
           const transactionDate = new Date(t.date);
           return transactionDate >= startDate && transactionDate <= endDate;
         });
@@ -414,26 +412,40 @@ export class TransactionService {
       ];
 
       // Remover duplicatas baseado em ID, data e descrição
-      const uniqueTransactions = allTransactions.reduce((acc: any[], current: any) => {
-        const isDuplicate = acc.some((existing: any) => {
-          // Se é uma transação real, não pode ter duplicata virtual
-          if (existing.recurrent_transaction_id && current.recurrent_transaction_id) {
-            return existing.recurrent_transaction_id === current.recurrent_transaction_id &&
-                   format(new Date(existing.date), "yyyy-MM-dd") === format(new Date(current.date), "yyyy-MM-dd");
-          }
-          // Se é uma transação virtual, verificar se já existe uma real para a mesma data
-          if (current.is_virtual && !existing.is_virtual) {
-            return existing.recurrent_transaction_id === current.recurrent_transaction_id &&
-                   format(new Date(existing.date), "yyyy-MM-dd") === format(new Date(current.date), "yyyy-MM-dd");
-          }
-          return false;
-        });
+      const uniqueTransactions = allTransactions.reduce(
+        (acc: any[], current: any) => {
+          const isDuplicate = acc.some((existing: any) => {
+            // Se é uma transação real, não pode ter duplicata virtual
+            if (
+              existing.recurrent_transaction_id &&
+              current.recurrent_transaction_id
+            ) {
+              return (
+                existing.recurrent_transaction_id ===
+                  current.recurrent_transaction_id &&
+                format(new Date(existing.date), 'yyyy-MM-dd') ===
+                  format(new Date(current.date), 'yyyy-MM-dd')
+              );
+            }
+            // Se é uma transação virtual, verificar se já existe uma real para a mesma data
+            if (current.is_virtual && !existing.is_virtual) {
+              return (
+                existing.recurrent_transaction_id ===
+                  current.recurrent_transaction_id &&
+                format(new Date(existing.date), 'yyyy-MM-dd') ===
+                  format(new Date(current.date), 'yyyy-MM-dd')
+              );
+            }
+            return false;
+          });
 
-        if (!isDuplicate) {
-          acc.push(current);
-        }
-        return acc;
-      }, []);
+          if (!isDuplicate) {
+            acc.push(current);
+          }
+          return acc;
+        },
+        []
+      );
 
       // Aplique ordenação
       const sortedTransactions = uniqueTransactions.sort((a, b) => {
@@ -441,33 +453,33 @@ export class TransactionService {
         let bValue: any;
 
         switch (sortBy) {
-          case "payment_status":
-            aValue = (a as any).payment_status?.description || "";
-            bValue = (b as any).payment_status?.description || "";
+          case 'payment_status':
+            aValue = (a as any).payment_status?.description || '';
+            bValue = (b as any).payment_status?.description || '';
             break;
-          case "category":
-            aValue = (a as any).categories?.description || "";
-            bValue = (b as any).categories?.description || "";
+          case 'category':
+            aValue = (a as any).categories?.description || '';
+            bValue = (b as any).categories?.description || '';
             break;
-          case "tag":
-            aValue = (a as any).tags?.description || "";
-            bValue = (b as any).tags?.description || "";
+          case 'tag':
+            aValue = (a as any).tags?.description || '';
+            bValue = (b as any).tags?.description || '';
             break;
-          case "date":
+          case 'date':
             aValue = new Date(a.date);
             bValue = new Date(b.date);
             break;
-          case "amount":
+          case 'amount':
             aValue = a.amount;
             bValue = b.amount;
             break;
           default:
-            aValue = (a as any)[sortBy] || "";
-            bValue = (b as any)[sortBy] || "";
+            aValue = (a as any)[sortBy] || '';
+            bValue = (b as any)[sortBy] || '';
         }
 
-        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
 
@@ -475,7 +487,10 @@ export class TransactionService {
       const total = sortedTransactions.length;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedTransactions = sortedTransactions.slice(startIndex, endIndex);
+      const paginatedTransactions = sortedTransactions.slice(
+        startIndex,
+        endIndex
+      );
 
       return {
         data: paginatedTransactions,
@@ -487,7 +502,7 @@ export class TransactionService {
         },
       };
     } catch (error) {
-      errorLogger.functionError("TransactionService.get", error, {
+      errorLogger.functionError('TransactionService.get', error, {
         filters,
         userId,
       });
