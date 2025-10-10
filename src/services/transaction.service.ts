@@ -51,21 +51,17 @@ export class TransactionService {
   ): ExtendedTransaction[] {
     const virtualTransactions: ExtendedTransaction[] = [];
 
-    // Determine date range for generating virtual transactions
     const now = new Date();
     let rangeStart: Date;
     let rangeEnd: Date;
 
     if (dateFilter) {
-      // If date filter exists, generate for entire month
       const date = new Date(dateFilter);
       const year = date.getFullYear();
       const month = date.getMonth();
 
-      // First day of the month
       rangeStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
 
-      // Last day of the month
       rangeEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
     } else {
       // Default: generate for next 90 days
@@ -74,41 +70,35 @@ export class TransactionService {
       rangeEnd.setDate(rangeEnd.getDate() + 90);
     }
 
-    // Respect recurring transaction start_date and end_date
     const startDate = new Date(recurringTransaction.start_date);
     if (startDate > rangeEnd) {
-      return []; // Recurring hasn't started yet in this range
+      return [];
     }
 
     if (recurringTransaction.end_date) {
       const endDate = new Date(recurringTransaction.end_date);
       if (endDate < rangeStart) {
-        return []; // Recurring has already ended
+        return [];
       }
       rangeEnd = endDate < rangeEnd ? endDate : rangeEnd;
     }
 
-    // Adjust rangeStart to not be before start_date
     rangeStart = startDate > rangeStart ? startDate : rangeStart;
 
     try {
-      // Generate occurrences using RRULE
       const occurrences = generateOccurrences(
         recurringTransaction.recurrence_rule,
         startDate,
         { start: rangeStart, end: rangeEnd }
       );
 
-      // Create virtual transaction for each occurrence
       for (const occurrenceDate of occurrences) {
         const dateStr = occurrenceDate.toISOString().split('T')[0];
 
-        // Skip if real transaction already exists for this date
         if (existingTransactionDates.has(dateStr)) {
           continue;
         }
 
-        // Create virtual transaction
         const virtualTransaction: ExtendedTransaction = {
           id: `virtual-${recurringTransaction.id}-${occurrenceDate.getTime()}`,
           description: recurringTransaction.description,
@@ -122,7 +112,6 @@ export class TransactionService {
           recurrent_transaction_id: recurringTransaction.id,
           is_virtual: true,
           is_recurring_generated: true,
-          // Copy optional fields from reference transaction if available
           tag_id: referenceTransaction?.tag_id,
           category_id: referenceTransaction?.category_id,
           payment_status_id: referenceTransaction?.payment_status_id,
@@ -159,12 +148,10 @@ export class TransactionService {
       const bVal = b[sortBy as keyof ExtendedTransaction];
       const multiplier = sortOrder === 'asc' ? 1 : -1;
 
-      // Handle null/undefined values
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return 1 * multiplier;
       if (bVal == null) return -1 * multiplier;
 
-      // Compare values
       if (aVal < bVal) return -1 * multiplier;
       if (aVal > bVal) return 1 * multiplier;
       return 0;
@@ -183,27 +170,22 @@ export class TransactionService {
     error?: unknown;
   }> {
     try {
-      // 1. Build query for real transactions with filters
       let query = supabase
         .from('transactions')
         .select('*')
         .eq('user_id', userId);
 
-      // Apply filters to the query
       if (filters.type) {
         query = query.eq('type', filters.type);
       }
 
       if (filters.date) {
-        // Extract year and month from date to filter entire month
         const date = new Date(filters.date);
         const year = date.getFullYear();
-        const month = date.getMonth(); // 0-11
+        const month = date.getMonth();
 
-        // First day of the month
         const firstDay = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
 
-        // First day of next month (used as upper bound)
         const lastDay = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0, 0));
 
         query = query.gte('date', firstDay.toISOString());
@@ -239,7 +221,6 @@ export class TransactionService {
         };
       }
 
-      // 2. Fetch recurring transactions for the user
       const { data: recurringTransactions, error: recurringError } =
         await supabase
           .from('recurring_transactions')
@@ -250,7 +231,6 @@ export class TransactionService {
         console.error('Error fetching recurring transactions:', recurringError);
       }
 
-      // 3. Create a set of dates that have real transactions for each recurring_transaction_id
       const existingDatesMap = new Map<string, Set<string>>();
       const referenceTransactionMap = new Map<string, Transaction>();
 
@@ -265,7 +245,6 @@ export class TransactionService {
               transaction.recurrent_transaction_id,
               new Set()
             );
-            // Store first transaction as reference for optional fields
             referenceTransactionMap.set(
               transaction.recurrent_transaction_id,
               transaction
@@ -281,11 +260,9 @@ export class TransactionService {
         }
       }
 
-      // 4. Generate virtual transactions from recurring transactions
       const virtualTransactions: ExtendedTransaction[] = [];
 
       for (const recurring of recurringTransactions || []) {
-        // Apply filters to recurring transactions before generating
         if (filters.type && recurring.type !== filters.type) {
           continue;
         }
@@ -294,7 +271,6 @@ export class TransactionService {
           existingDatesMap.get(recurring.id) || new Set<string>();
         const referenceTransaction = referenceTransactionMap.get(recurring.id);
 
-        // Filter by category/tag/status if they exist in reference transaction
         if (
           filters.categoryId &&
           referenceTransaction?.category_id !== filters.categoryId
@@ -323,7 +299,6 @@ export class TransactionService {
         virtualTransactions.push(...generated);
       }
 
-      // 5. Merge real and virtual transactions
       const allTransactions: ExtendedTransaction[] = [
         ...(realTransactions || []).map(t => ({
           ...t,
@@ -332,21 +307,18 @@ export class TransactionService {
         ...virtualTransactions,
       ];
 
-      // 6. Sort all transactions
       const sorted = this.sortTransactions(
         allTransactions,
         filters.sortBy,
         filters.sortOrder
       );
 
-      // 7. Apply pagination manually
       const page = filters.page || 1;
       const limit = filters.limit || 10;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       const paginated = sorted.slice(startIndex, endIndex);
 
-      // 8. Return with pagination metadata
       return {
         data: paginated,
         pagination: {
