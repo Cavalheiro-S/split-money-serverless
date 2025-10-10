@@ -1,11 +1,7 @@
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
 import { z } from 'zod';
 import { TransactionService } from '../../services/transaction.service';
-import { Database } from '../../types/database/database.type';
 import { createErrorLogger } from '../../utils/error-logger';
-
-type Tables = Database['public']['Tables'];
-type Transaction = Tables['transactions']['Row'];
 
 const schema = z.object({
   page: z.coerce.number().optional().default(1),
@@ -42,8 +38,32 @@ export const handler = async (
   try {
     const filters = schema.parse(event.queryStringParameters || {});
     const sub = event.requestContext.authorizer.jwt.claims.sub as string;
-    const service = new TransactionService();
-    const { data, pagination } = await service.get({ ...filters, userId: sub });
+    const {
+      data,
+      pagination,
+      error: serviceError,
+    } = await TransactionService.getTransactions(
+      { ...filters, userId: sub },
+      sub
+    );
+
+    if (serviceError) {
+      errorLogger.functionError('get-transactions', serviceError, {
+        queryParams: event.queryStringParameters,
+      });
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: 'Error fetching transactions',
+          error:
+            serviceError instanceof Error
+              ? serviceError.message
+              : 'Database error',
+          requestId: event.requestContext.requestId,
+        }),
+      };
+    }
 
     return {
       statusCode: 200,
@@ -58,7 +78,6 @@ export const handler = async (
       queryParams: event.queryStringParameters,
     });
 
-    // Return appropriate error response
     if (error instanceof z.ZodError) {
       errorLogger.validationError(
         'query parameters',

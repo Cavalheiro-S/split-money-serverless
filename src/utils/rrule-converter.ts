@@ -23,3 +23,29 @@ export const convertToRRule = (
 
   return rule.toString().replace('RRULE:', '');
 };
+
+export const generateOccurrences = (
+  rruleString: string,
+  startDate: Date,
+  dateRange: { start: Date; end: Date }
+): Date[] => {
+  try {
+    // Use dtstart from the recurring transaction's start_date
+    const ruleWithStart = new RRule({
+      ...RRule.parseString(`RRULE:${rruleString}`),
+      dtstart: startDate,
+    });
+
+    // Generate occurrences between the date range, inclusive
+    const occurrences = ruleWithStart.between(
+      dateRange.start,
+      dateRange.end,
+      true // inclusive
+    );
+
+    return occurrences;
+  } catch (error) {
+    console.error('Error generating occurrences from RRULE:', error);
+    return [];
+  }
+};

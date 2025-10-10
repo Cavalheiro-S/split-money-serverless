@@ -1,16 +1,7 @@
-import {
-  addMonths,
-  endOfMonth,
-  format,
-  isAfter,
-  isEqual,
-  startOfMonth,
-} from 'date-fns';
-import { RRule } from 'rrule';
 import { supabase } from '../libs/supabase';
 import { Database } from '../types/database/database.type';
 import { ExtendedTransaction } from '../types/database/transaction.type';
-import { createErrorLogger } from '../utils/error-logger';
+import { generateOccurrences } from '../utils/rrule-converter';
 
 type Filters = {
   page?: number;
@@ -36,481 +27,349 @@ type Tables = Database['public']['Tables'];
 type Transaction = Tables['transactions']['Row'];
 type RecurringTransaction = Tables['recurring_transactions']['Row'];
 
-export class TransactionService {
-  private async generateFutureTransactions(
-    recurringTransaction: RecurringTransaction,
-    filters?: Filters
-  ): Promise<
-    (Transaction & {
-      payment_status?: any;
-      category?: any;
-      tag?: any;
-    })[]
-  > {
-    const errorLogger = createErrorLogger({
-      userId: recurringTransaction.user_id,
-      functionName: 'generateFutureTransactions',
-    });
+interface PaginationMetadata {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
 
+export class TransactionService {
+  /**
+   * Generates virtual transactions from a recurring transaction based on RRULE
+   * @param recurringTransaction The recurring transaction definition
+   * @param dateFilter Optional date to generate for entire month, or generates for next 90 days
+   * @param existingTransactionDates Dates that already have real transactions (to exclude)
+   * @returns Array of virtual transactions
+   */
+  private static generateVirtualTransactions(
+    recurringTransaction: RecurringTransaction,
+    dateFilter?: string,
+    existingTransactionDates: Set<string> = new Set(),
+    referenceTransaction?: Transaction
+  ): ExtendedTransaction[] {
+    const virtualTransactions: ExtendedTransaction[] = [];
+
+    // Determine date range for generating virtual transactions
     const now = new Date();
+    let rangeStart: Date;
+    let rangeEnd: Date;
+
+    if (dateFilter) {
+      // If date filter exists, generate for entire month
+      const date = new Date(dateFilter);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+
+      // First day of the month
+      rangeStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+      // Last day of the month
+      rangeEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+    } else {
+      // Default: generate for next 90 days
+      rangeStart = now;
+      rangeEnd = new Date(now);
+      rangeEnd.setDate(rangeEnd.getDate() + 90);
+    }
+
+    // Respect recurring transaction start_date and end_date
+    const startDate = new Date(recurringTransaction.start_date);
+    if (startDate > rangeEnd) {
+      return []; // Recurring hasn't started yet in this range
+    }
+
+    if (recurringTransaction.end_date) {
+      const endDate = new Date(recurringTransaction.end_date);
+      if (endDate < rangeStart) {
+        return []; // Recurring has already ended
+      }
+      rangeEnd = endDate < rangeEnd ? endDate : rangeEnd;
+    }
+
+    // Adjust rangeStart to not be before start_date
+    rangeStart = startDate > rangeStart ? startDate : rangeStart;
 
     try {
-      const recurringStartDate = new Date(recurringTransaction.start_date);
-      const originalRule = RRule.fromString(
-        recurringTransaction.recurrence_rule
+      // Generate occurrences using RRULE
+      const occurrences = generateOccurrences(
+        recurringTransaction.recurrence_rule,
+        startDate,
+        { start: rangeStart, end: rangeEnd }
       );
 
-      const rule = new RRule({
-        freq: originalRule.options.freq,
-        count: originalRule.options.count,
-        interval: originalRule.options.interval || 1,
-        dtstart: recurringStartDate,
-        bymonthday: [recurringStartDate.getUTCDate()],
-        byhour: [recurringStartDate.getUTCHours()],
-        byminute: [recurringStartDate.getUTCMinutes()],
-        bysecond: [recurringStartDate.getUTCSeconds()],
-      });
+      // Create virtual transaction for each occurrence
+      for (const occurrenceDate of occurrences) {
+        const dateStr = occurrenceDate.toISOString().split('T')[0];
 
-      const requestDate = filters?.date ? new Date(filters.date) : now;
-
-      if (isAfter(recurringStartDate, requestDate)) {
-        return [];
-      }
-
-      let searchStartDate: Date;
-      let searchEndDate: Date;
-
-      if (filters?.date) {
-        searchStartDate = startOfMonth(requestDate);
-        searchEndDate = endOfMonth(requestDate);
-      } else {
-        searchStartDate = now;
-        searchEndDate = addMonths(now, 12);
-      }
-
-      let finalEndDate: Date;
-
-      if (recurringTransaction.end_date) {
-        finalEndDate = new Date(
-          Math.min(
-            recurringTransaction.end_date.getTime(),
-            searchEndDate.getTime()
-          )
-        );
-      } else if (rule.options.until) {
-        finalEndDate = new Date(
-          Math.min(rule.options.until.getTime(), searchEndDate.getTime())
-        );
-      } else {
-        finalEndDate = searchEndDate;
-      }
-
-      let allDates: Date[];
-
-      if (filters?.date && rule.options.count) {
-        const requestStartDate = new Date(requestDate);
-        requestStartDate.setUTCDate(recurringStartDate.getUTCDate());
-        requestStartDate.setUTCHours(recurringStartDate.getUTCHours());
-        requestStartDate.setUTCMinutes(recurringStartDate.getUTCMinutes());
-        requestStartDate.setUTCSeconds(recurringStartDate.getUTCSeconds());
-
-        const requestRule = new RRule({
-          freq: originalRule.options.freq,
-          count: originalRule.options.count,
-          interval: originalRule.options.interval || 1,
-          dtstart: requestStartDate,
-          bymonthday: [recurringStartDate.getUTCDate()],
-          byhour: [recurringStartDate.getUTCHours()],
-          byminute: [recurringStartDate.getUTCMinutes()],
-          bysecond: [recurringStartDate.getUTCSeconds()],
-        });
-
-        allDates = requestRule.all();
-      } else if (rule.options.count) {
-        allDates = rule.all();
-      } else {
-        allDates = rule.between(recurringStartDate, finalEndDate, true);
-      }
-
-      let dates = allDates.filter(
-        date => date >= searchStartDate && date <= searchEndDate
-      );
-
-      if (filters?.date) {
-        // Include all dates for specific date requests
-      } else {
-        dates = dates.filter(date => isAfter(date, now) || isEqual(date, now));
-      }
-
-      const existingTransactionDates = new Set<string>();
-
-      if (dates.length > 0) {
-        const dateStrings = dates.map(date => format(date, 'yyyy-MM-dd'));
-
-        try {
-          // Verificar transações existentes para esta transação recorrente
-          const { data: existingTransactions, error: existingError } =
-            await supabase
-              .from('transactions')
-              .select('date')
-              .eq('user_id', recurringTransaction.user_id)
-              .eq('recurrent_transaction_id', recurringTransaction.id);
-
-          if (existingError) {
-            errorLogger.databaseError('SELECT', 'transactions', existingError, {
-              recurringTransactionId: recurringTransaction.id,
-              userId: recurringTransaction.user_id,
-              query: 'check existing transactions',
-            });
-            throw existingError;
-          }
-
-          if (existingTransactions) {
-            existingTransactions.forEach((transaction: any) => {
-              existingTransactionDates.add(
-                format(new Date(transaction.date), 'yyyy-MM-dd')
-              );
-            });
-          }
-        } catch (checkError) {
-          errorLogger.functionError('checkExistingTransactions', checkError, {
-            recurringTransactionId: recurringTransaction.id,
-            userId: recurringTransaction.user_id,
-            dates: dateStrings,
-          });
-          return [];
+        // Skip if real transaction already exists for this date
+        if (existingTransactionDates.has(dateStr)) {
+          continue;
         }
-      }
 
-      const futureTransactions = dates
-        .filter(
-          date => !existingTransactionDates.has(format(date, 'yyyy-MM-dd'))
-        )
-        .map(date => ({
-          id: crypto.randomUUID(),
+        // Create virtual transaction
+        const virtualTransaction: ExtendedTransaction = {
+          id: `virtual-${recurringTransaction.id}-${occurrenceDate.getTime()}`,
           description: recurringTransaction.description,
-          type: recurringTransaction.type,
+          date: occurrenceDate,
           amount: recurringTransaction.amount,
-          date,
           note: recurringTransaction.note,
+          type: recurringTransaction.type,
+          created_at: recurringTransaction.created_at,
+          updated_at: recurringTransaction.updated_at,
           user_id: recurringTransaction.user_id,
           recurrent_transaction_id: recurringTransaction.id,
-          created_at: now,
-          updated_at: now,
-          payment_status: null,
-          category: null,
-          tag: null,
-        }));
+          is_virtual: true,
+          is_recurring_generated: true,
+          // Copy optional fields from reference transaction if available
+          tag_id: referenceTransaction?.tag_id,
+          category_id: referenceTransaction?.category_id,
+          payment_status_id: referenceTransaction?.payment_status_id,
+        };
 
-      // Update last_generated_at
-      if (futureTransactions.length > 0) {
-        try {
-          const { error: updateError } = await (supabase as any)
-            .from('recurring_transactions')
-            .update({ last_generated_at: now })
-            .eq('id', recurringTransaction.id);
-
-          if (updateError) {
-            errorLogger.databaseError(
-              'UPDATE',
-              'recurring_transactions',
-              updateError,
-              {
-                recurringTransactionId: recurringTransaction.id,
-                operation: 'update last_generated_at',
-              }
-            );
-          }
-        } catch (updateError) {
-          errorLogger.functionError('updateLastGeneratedAt', updateError, {
-            recurringTransactionId: recurringTransaction.id,
-          });
-        }
+        virtualTransactions.push(virtualTransaction);
       }
-
-      return futureTransactions;
     } catch (error) {
-      errorLogger.functionError('generateFutureTransactions', error, {
-        recurringTransaction: {
-          id: recurringTransaction.id,
-          description: recurringTransaction.description,
-          recurrence_rule: recurringTransaction.recurrence_rule,
-        },
-        filters,
-      });
-      throw error;
+      console.error(
+        'Error generating virtual transactions:',
+        error,
+        'for recurring:',
+        recurringTransaction.id
+      );
     }
+
+    return virtualTransactions;
   }
 
-  async get(filters: Filters): Promise<{
-    data: ExtendedTransaction[];
-    pagination: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
-  }> {
-    const errorLogger = createErrorLogger({
-      userId: filters.userId,
-      functionName: 'TransactionService.get',
+  /**
+   * Sorts transactions array by specified field and order
+   */
+  private static sortTransactions(
+    transactions: ExtendedTransaction[],
+    sortBy?: string,
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): ExtendedTransaction[] {
+    if (!sortBy) {
+      sortBy = 'date';
+    }
+
+    return [...transactions].sort((a, b) => {
+      const aVal = a[sortBy as keyof ExtendedTransaction];
+      const bVal = b[sortBy as keyof ExtendedTransaction];
+      const multiplier = sortOrder === 'asc' ? 1 : -1;
+
+      // Handle null/undefined values
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1 * multiplier;
+      if (bVal == null) return -1 * multiplier;
+
+      // Compare values
+      if (aVal < bVal) return -1 * multiplier;
+      if (aVal > bVal) return 1 * multiplier;
+      return 0;
     });
+  }
 
-    const {
-      page = 1,
-      limit = 10,
-      type,
-      date,
-      status,
-      categoryId,
-      tagId,
-      sortBy = 'date',
-      sortOrder = 'desc',
-      userId,
-    } = filters;
-
-    const startDate = date ? startOfMonth(new Date(date)) : undefined;
-    const endDate = date ? endOfMonth(new Date(date)) : undefined;
-
+  /**
+   * Gets transactions with pagination, merging real and virtual transactions
+   */
+  static async getTransactions(
+    filters: Filters,
+    userId: string
+  ): Promise<{
+    data: ExtendedTransaction[];
+    pagination: PaginationMetadata;
+    error?: unknown;
+  }> {
     try {
-      // Primeiro, busque todas as transações regulares (sem paginação)
+      // 1. Build query for real transactions with filters
       let query = supabase
         .from('transactions')
-        .select(
-          `
-                  *,
-                  payment_status (*),
-                  categories (*),
-                  tags (*)
-                `,
-          { count: 'exact' }
-        )
+        .select('*')
         .eq('user_id', userId);
 
-      if (type) {
-        query = query.eq('type', type);
-      }
-      if (status) {
-        query = query.eq('payment_status.description', status);
+      // Apply filters to the query
+      if (filters.type) {
+        query = query.eq('type', filters.type);
       }
 
-      if (categoryId) {
-        query = query.eq('category_id', categoryId);
+      if (filters.date) {
+        // Extract year and month from date to filter entire month
+        const date = new Date(filters.date);
+        const year = date.getFullYear();
+        const month = date.getMonth(); // 0-11
+
+        // First day of the month
+        const firstDay = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+        // First day of next month (used as upper bound)
+        const lastDay = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0, 0));
+
+        query = query.gte('date', firstDay.toISOString());
+        query = query.lt('date', lastDay.toISOString());
       }
 
-      if (tagId) {
-        query = query.eq('tag_id', tagId);
+      if (filters.status) {
+        query = query.eq('payment_status_id', filters.status);
       }
 
-      if (startDate && endDate) {
-        const startDateStr = format(startDate, 'yyyy-MM-dd HH:mm:ss');
-        const endDateStr = format(endDate, 'yyyy-MM-dd HH:mm:ss');
-        query = query.gte('date', startDateStr).lte('date', endDateStr);
+      if (filters.categoryId) {
+        query = query.eq('category_id', filters.categoryId);
       }
 
-      const { data: regularTransactions, error, count } = await query;
-
-      if (error) {
-        errorLogger.databaseError('SELECT', 'transactions', error, {
-          userId,
-          filters,
-          query: 'transactions with joins',
-        });
-        throw error;
+      if (filters.tagId) {
+        query = query.eq('tag_id', filters.tagId);
       }
 
-      // Busque transações recorrentes futuras
-      let futureTransactions: Transaction[] = [];
-      try {
-        const now = new Date();
-        const requestDate = filters?.date ? new Date(filters.date) : now;
+      const { data: realTransactions, error: realError } = await query;
 
-        const { data: recurringTransactions, error: recurringError } =
-          await supabase
-            .from('recurring_transactions')
-            .select('*')
-            .eq('user_id', userId);
+      if (realError) {
+        console.error('Error fetching real transactions:', realError);
+        return {
+          data: [],
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            total: 0,
+            totalPages: 0,
+            hasMore: false,
+          },
+          error: realError,
+        };
+      }
 
-        if (recurringError) {
-          errorLogger.databaseError(
-            'SELECT',
-            'recurring_transactions',
-            recurringError,
-            {
-              userId,
-              requestDate: format(requestDate, 'yyyy-MM-dd'),
-              query: 'recurring_transactions',
-            }
-          );
-          throw recurringError;
-        }
+      // 2. Fetch recurring transactions for the user
+      const { data: recurringTransactions, error: recurringError } =
+        await supabase
+          .from('recurring_transactions')
+          .select('*')
+          .eq('user_id', userId);
 
-        if (recurringTransactions && recurringTransactions.length > 0) {
-          const activeRecurringTransactions = recurringTransactions.filter(
-            (transaction: any) => {
-              const transactionStartDate = new Date(transaction.start_date);
+      if (recurringError) {
+        console.error('Error fetching recurring transactions:', recurringError);
+      }
 
-              if (transaction.end_date) {
-                const transactionEndDate = new Date(transaction.end_date);
-                return transactionEndDate >= requestDate;
-              }
+      // 3. Create a set of dates that have real transactions for each recurring_transaction_id
+      const existingDatesMap = new Map<string, Set<string>>();
+      const referenceTransactionMap = new Map<string, Transaction>();
 
-              return true;
-            }
-          );
+      for (const transaction of realTransactions || []) {
+        if (transaction.recurrent_transaction_id) {
+          const dateStr = new Date(transaction.date)
+            .toISOString()
+            .split('T')[0];
 
-          if (activeRecurringTransactions.length > 0) {
-            const futureTransactionsPromises = activeRecurringTransactions.map(
-              item => this.generateFutureTransactions(item, filters)
+          if (!existingDatesMap.has(transaction.recurrent_transaction_id)) {
+            existingDatesMap.set(
+              transaction.recurrent_transaction_id,
+              new Set()
             );
-            futureTransactions = (
-              await Promise.all(futureTransactionsPromises)
-            ).flat();
+            // Store first transaction as reference for optional fields
+            referenceTransactionMap.set(
+              transaction.recurrent_transaction_id,
+              transaction
+            );
+          }
+
+          const dateSet = existingDatesMap.get(
+            transaction.recurrent_transaction_id
+          );
+          if (dateSet) {
+            dateSet.add(dateStr);
           }
         }
-      } catch (recurringError) {
-        errorLogger.functionError(
-          'processRecurringTransactions',
-          recurringError,
-          {
-            userId,
-            requestDate: filters?.date,
-          }
+      }
+
+      // 4. Generate virtual transactions from recurring transactions
+      const virtualTransactions: ExtendedTransaction[] = [];
+
+      for (const recurring of recurringTransactions || []) {
+        // Apply filters to recurring transactions before generating
+        if (filters.type && recurring.type !== filters.type) {
+          continue;
+        }
+
+        const existingDates =
+          existingDatesMap.get(recurring.id) || new Set<string>();
+        const referenceTransaction = referenceTransactionMap.get(recurring.id);
+
+        // Filter by category/tag/status if they exist in reference transaction
+        if (
+          filters.categoryId &&
+          referenceTransaction?.category_id !== filters.categoryId
+        ) {
+          continue;
+        }
+
+        if (filters.tagId && referenceTransaction?.tag_id !== filters.tagId) {
+          continue;
+        }
+
+        if (
+          filters.status &&
+          referenceTransaction?.payment_status_id !== filters.status
+        ) {
+          continue;
+        }
+
+        const generated = this.generateVirtualTransactions(
+          recurring,
+          filters.date,
+          existingDates,
+          referenceTransaction
         );
-        throw recurringError;
+
+        virtualTransactions.push(...generated);
       }
 
-      // Processe e filtre transações futuras
-      const enhancedFutureTransactions = futureTransactions
-        .flat()
-        .map(transaction => ({
-          ...transaction,
-          recurring_transactions: null,
-          is_recurring_generated: true,
-          is_virtual: true,
-        }));
-
-      let filteredFutureTransactions = enhancedFutureTransactions;
-
-      if (type) {
-        filteredFutureTransactions = filteredFutureTransactions.filter(
-          t => t.type === type
-        );
-      }
-
-      if (startDate && endDate) {
-        filteredFutureTransactions = filteredFutureTransactions.filter(t => {
-          const transactionDate = new Date(t.date);
-          return transactionDate >= startDate && transactionDate <= endDate;
-        });
-      }
-
-      // Combine todas as transações e remova duplicatas
-      const allTransactions = [
-        ...(regularTransactions || []),
-        ...filteredFutureTransactions,
+      // 5. Merge real and virtual transactions
+      const allTransactions: ExtendedTransaction[] = [
+        ...(realTransactions || []).map(t => ({
+          ...t,
+          is_virtual: false,
+        })),
+        ...virtualTransactions,
       ];
 
-      // Remover duplicatas baseado em ID, data e descrição
-      const uniqueTransactions = allTransactions.reduce(
-        (acc: any[], current: any) => {
-          const isDuplicate = acc.some((existing: any) => {
-            // Se é uma transação real, não pode ter duplicata virtual
-            if (
-              existing.recurrent_transaction_id &&
-              current.recurrent_transaction_id
-            ) {
-              return (
-                existing.recurrent_transaction_id ===
-                  current.recurrent_transaction_id &&
-                format(new Date(existing.date), 'yyyy-MM-dd') ===
-                  format(new Date(current.date), 'yyyy-MM-dd')
-              );
-            }
-            // Se é uma transação virtual, verificar se já existe uma real para a mesma data
-            if (current.is_virtual && !existing.is_virtual) {
-              return (
-                existing.recurrent_transaction_id ===
-                  current.recurrent_transaction_id &&
-                format(new Date(existing.date), 'yyyy-MM-dd') ===
-                  format(new Date(current.date), 'yyyy-MM-dd')
-              );
-            }
-            return false;
-          });
-
-          if (!isDuplicate) {
-            acc.push(current);
-          }
-          return acc;
-        },
-        []
+      // 6. Sort all transactions
+      const sorted = this.sortTransactions(
+        allTransactions,
+        filters.sortBy,
+        filters.sortOrder
       );
 
-      // Aplique ordenação
-      const sortedTransactions = uniqueTransactions.sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
-
-        switch (sortBy) {
-          case 'payment_status':
-            aValue = (a as any).payment_status?.description || '';
-            bValue = (b as any).payment_status?.description || '';
-            break;
-          case 'category':
-            aValue = (a as any).categories?.description || '';
-            bValue = (b as any).categories?.description || '';
-            break;
-          case 'tag':
-            aValue = (a as any).tags?.description || '';
-            bValue = (b as any).tags?.description || '';
-            break;
-          case 'date':
-            aValue = new Date(a.date);
-            bValue = new Date(b.date);
-            break;
-          case 'amount':
-            aValue = a.amount;
-            bValue = b.amount;
-            break;
-          default:
-            aValue = (a as any)[sortBy] || '';
-            bValue = (b as any)[sortBy] || '';
-        }
-
-        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-      // Aplique paginação corretamente
-      const total = sortedTransactions.length;
+      // 7. Apply pagination manually
+      const page = filters.page || 1;
+      const limit = filters.limit || 10;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedTransactions = sortedTransactions.slice(
-        startIndex,
-        endIndex
-      );
+      const paginated = sorted.slice(startIndex, endIndex);
 
+      // 8. Return with pagination metadata
       return {
-        data: paginatedTransactions,
+        data: paginated,
         pagination: {
-          total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit),
+          total: sorted.length,
+          totalPages: Math.ceil(sorted.length / limit),
+          hasMore: endIndex < sorted.length,
         },
       };
     } catch (error) {
-      errorLogger.functionError('TransactionService.get', error, {
-        filters,
-        userId,
-      });
-      throw error;
+      console.error('Unexpected error in getTransactions:', error);
+      return {
+        data: [],
+        pagination: {
+          page: filters.page || 1,
+          limit: filters.limit || 10,
+          total: 0,
+          totalPages: 0,
+          hasMore: false,
+        },
+        error,
+      };
     }
-  }
-
-  async getFuture() {
-    return [];
   }
 }
