@@ -62,6 +62,83 @@ export class RecurringTransactionService {
     }
   }
   /**
+   * Updates a recurring transaction by ID
+   * Only updates the recurring transaction, existing real transactions remain unchanged
+   * @param id Recurring transaction ID
+   * @param userId User ID for authorization
+   * @param updateData Data to update
+   * @returns Result with updated data or error
+   */
+  static async updateRecurringTransaction(
+    id: string,
+    userId: string,
+    updateData: Partial<{
+      description: string;
+      type: 'income' | 'outcome';
+      amount: number;
+      recurrence_rule: string;
+      start_date: Date;
+      end_date: Date | null;
+      note: string;
+    }>
+  ): Promise<{
+    success: boolean;
+    data?: RecurringTransaction;
+    error?: unknown;
+  }> {
+    try {
+      // Verify ownership
+      const { data: existingRecurring, error: fetchError } = await supabase
+        .from('recurring_transactions')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError || !existingRecurring) {
+        return {
+          success: false,
+          error: new Error('Recurring transaction not found or unauthorized'),
+        };
+      }
+
+      // Prepare update payload
+      const payload: any = {
+        ...updateData,
+        updated_at: new Date(),
+      };
+
+      // Update recurring transaction
+      const { data: updatedRecurring, error: updateError } = await supabase
+        .from('recurring_transactions')
+        .update(payload)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating recurring transaction:', updateError);
+        return {
+          success: false,
+          error: updateError,
+        };
+      }
+
+      return {
+        success: true,
+        data: updatedRecurring as RecurringTransaction,
+      };
+    } catch (error) {
+      console.error('Unexpected error in updateRecurringTransaction:', error);
+      return {
+        success: false,
+        error,
+      };
+    }
+  }
+
+  /**
    * Deletes a recurring transaction by ID
    * Keeps all existing real transactions intact (removes the reference to recurring_transaction)
    * @param id Recurring transaction ID

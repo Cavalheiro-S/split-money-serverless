@@ -254,6 +254,14 @@ functions:
           method: get
           authorizer:
             name: CognitoAuthorizer
+  bulkDeleteTransactions:
+    handler: src/functions/transaction/bulk-delete-transactions.handler
+    events:
+      - httpApi:
+          path: /transaction/bulk-delete
+          method: post
+          authorizer:
+            name: CognitoAuthorizer
 
   # Recurring Transaction
   getRecurringTransactions:
@@ -264,12 +272,28 @@ functions:
           method: get
           authorizer:
             name: CognitoAuthorizer
+  updateRecurringTransaction:
+    handler: src/functions/recurring-transaction/update-recurring-transaction.handler
+    events:
+      - httpApi:
+          path: /recurring-transaction/{id}
+          method: patch
+          authorizer:
+            name: CognitoAuthorizer
   deleteRecurringTransaction:
     handler: src/functions/recurring-transaction/delete-recurring-transaction.handler
     events:
       - httpApi:
           path: /recurring-transaction/{id}
           method: delete
+          authorizer:
+            name: CognitoAuthorizer
+  bulkDeleteRecurringTransactions:
+    handler: src/functions/recurring-transaction/bulk-delete-recurring-transactions.handler
+    events:
+      - httpApi:
+          path: /recurring-transaction/bulk-delete
+          method: post
           authorizer:
             name: CognitoAuthorizer
 
