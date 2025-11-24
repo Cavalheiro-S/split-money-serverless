@@ -1,21 +1,18 @@
 import { supabase } from '../libs/supabase';
 import { Database } from '../types/database/database.type';
+import { generateOccurrences } from '../utils/rrule-converter';
+import { v4 as uuidv4 } from 'uuid';
+import { startOfMonth, endOfMonth, getMonth, getYear } from 'date-fns';
 
 type Tables = Database['public']['Tables'];
 type RecurringTransaction = Tables['recurring_transactions']['Row'];
+type TransactionInsert = Tables['transactions']['Insert'];
 
 interface GetRecurringTransactionsFilters {
-  startDate?: string; // ISO date string - filter recurring transactions from this date onwards
+  startDate?: string;
 }
 
 export class RecurringTransactionService {
-  /**
-   * Gets all recurring transactions for a user
-   * Optionally filters by start date to show only active recurring transactions
-   * @param userId User ID for authorization
-   * @param filters Optional filters (startDate)
-   * @returns Result with recurring transactions or error
-   */
   static async getRecurringTransactions(
     userId: string,
     filters?: GetRecurringTransactionsFilters
@@ -33,7 +30,6 @@ export class RecurringTransactionService {
 
       if (filters?.startDate) {
         const filterDate = new Date(filters.startDate);
-
         query = query.or(
           `end_date.is.null,end_date.gte.${filterDate.toISOString()}`
         );
@@ -42,33 +38,15 @@ export class RecurringTransactionService {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching recurring transactions:', error);
-        return {
-          success: false,
-          error,
-        };
+        return { success: false, error };
       }
 
-      return {
-        success: true,
-        data: data || [],
-      };
+      return { success: true, data: data || [] };
     } catch (error) {
-      console.error('Unexpected error in getRecurringTransactions:', error);
-      return {
-        success: false,
-        error,
-      };
+      return { success: false, error };
     }
   }
-  /**
-   * Updates a recurring transaction by ID
-   * Only updates the recurring transaction, existing real transactions remain unchanged
-   * @param id Recurring transaction ID
-   * @param userId User ID for authorization
-   * @param updateData Data to update
-   * @returns Result with updated data or error
-   */
+
   static async updateRecurringTransaction(
     id: string,
     userId: string,
@@ -87,7 +65,6 @@ export class RecurringTransactionService {
     error?: unknown;
   }> {
     try {
-      // Verify ownership
       const { data: existingRecurring, error: fetchError } = await supabase
         .from('recurring_transactions')
         .select('*')
@@ -102,13 +79,11 @@ export class RecurringTransactionService {
         };
       }
 
-      // Prepare update payload
-      const payload: any = {
+      const payload = {
         ...updateData,
         updated_at: new Date(),
       };
 
-      // Update recurring transaction
       const { data: updatedRecurring, error: updateError } = await supabase
         .from('recurring_transactions')
         .update(payload)
@@ -118,33 +93,15 @@ export class RecurringTransactionService {
         .single();
 
       if (updateError) {
-        console.error('Error updating recurring transaction:', updateError);
-        return {
-          success: false,
-          error: updateError,
-        };
+        return { success: false, error: updateError };
       }
 
-      return {
-        success: true,
-        data: updatedRecurring as RecurringTransaction,
-      };
+      return { success: true, data: updatedRecurring as RecurringTransaction };
     } catch (error) {
-      console.error('Unexpected error in updateRecurringTransaction:', error);
-      return {
-        success: false,
-        error,
-      };
+      return { success: false, error };
     }
   }
 
-  /**
-   * Deletes a recurring transaction by ID
-   * Keeps all existing real transactions intact (removes the reference to recurring_transaction)
-   * @param id Recurring transaction ID
-   * @param userId User ID for authorization
-   * @returns Result with data or error
-   */
   static async deleteRecurringTransaction(
     id: string,
     userId: string
@@ -168,8 +125,6 @@ export class RecurringTransactionService {
         };
       }
 
-      // 2. Remover a referência de recurrent_transaction_id nas transações existentes
-      // Isso mantém as transações intactas mas remove o vínculo com a recurring_transaction
       const { error: updateError } = await supabase
         .from('transactions')
         .update({ recurrent_transaction_id: null })
@@ -177,14 +132,7 @@ export class RecurringTransactionService {
         .eq('user_id', userId);
 
       if (updateError) {
-        console.error(
-          'Error removing recurring transaction reference:',
-          updateError
-        );
-        return {
-          success: false,
-          error: updateError,
-        };
+        return { success: false, error: updateError };
       }
 
       const { error: deleteError } = await supabase
@@ -194,23 +142,165 @@ export class RecurringTransactionService {
         .eq('user_id', userId);
 
       if (deleteError) {
-        console.error('Error deleting recurring transaction:', deleteError);
+        return { success: false, error: deleteError };
+      }
+
+      return { success: true, data: existingRecurring };
+    } catch (error) {
+      return { success: false, error };
+    }
+  }
+
+  static async createScheduledTransactions(
+    targetMonth?: number,
+    targetYear?: number
+  ): Promise<{
+    success: boolean;
+    stats?: {
+      totalRecurringTransactions: number;
+      totalOccurrencesGenerated: number;
+      totalTransactionsCreated: number;
+      errors: Array<{ recurringId: string; error: string }>;
+    };
+    processedMonth?: string;
+    error?: unknown;
+  }> {
+    try {
+      const now = new Date();
+      const month = targetMonth !== undefined ? targetMonth - 1 : getMonth(now);
+      const year = targetYear !== undefined ? targetYear : getYear(now);
+
+      const targetDate = new Date(year, month);
+      const rangeStart = startOfMonth(targetDate);
+      const rangeEnd = endOfMonth(targetDate);
+
+      const { data: recurringTransactions, error: recurringError } =
+        await supabase.from('recurring_transactions').select('*');
+
+      if (recurringError) {
+        return { success: false, error: recurringError };
+      }
+
+      if (!recurringTransactions || recurringTransactions.length === 0) {
         return {
-          success: false,
-          error: deleteError,
+          success: true,
+          stats: {
+            totalRecurringTransactions: 0,
+            totalOccurrencesGenerated: 0,
+            totalTransactionsCreated: 0,
+            errors: [],
+          },
+          processedMonth: `${year}-${String(month + 1).padStart(2, '0')}`,
         };
+      }
+
+      const stats = {
+        totalRecurringTransactions: recurringTransactions.length,
+        totalOccurrencesGenerated: 0,
+        totalTransactionsCreated: 0,
+        errors: [] as Array<{ recurringId: string; error: string }>,
+      };
+
+      for (const recurring of recurringTransactions) {
+        try {
+          const startDate = new Date(recurring.start_date);
+
+          if (startDate > rangeEnd) continue;
+
+          if (recurring.end_date) {
+            const endDate = new Date(recurring.end_date);
+            if (endDate < rangeStart) continue;
+          }
+
+          const { data: existingTransactions, error: existingError } =
+            await supabase
+              .from('transactions')
+              .select('date')
+              .eq('recurrent_transaction_id', recurring.id);
+
+          if (existingError) {
+            stats.errors.push({
+              recurringId: recurring.id,
+              error:
+                existingError.message || 'Error fetching existing transactions',
+            });
+            continue;
+          }
+
+          const existingDates = new Set(
+            (existingTransactions || []).map(
+              t => new Date(t.date).toISOString().split('T')[0]
+            )
+          );
+
+          const occurrences = generateOccurrences(
+            recurring.recurrence_rule,
+            startDate,
+            { start: rangeStart, end: rangeEnd }
+          );
+
+          stats.totalOccurrencesGenerated += occurrences.length;
+
+          const { data: referenceTransactions } = await supabase
+            .from('transactions')
+            .select('category_id, tag_id, payment_status_id')
+            .eq('recurrent_transaction_id', recurring.id)
+            .limit(1)
+            .maybeSingle();
+
+          const transactionsToCreate: TransactionInsert[] = [];
+
+          for (const occurrenceDate of occurrences) {
+            const dateStr = occurrenceDate.toISOString().split('T')[0];
+
+            if (existingDates.has(dateStr)) continue;
+
+            transactionsToCreate.push({
+              id: uuidv4(),
+              description: recurring.description,
+              date: occurrenceDate,
+              amount: recurring.amount,
+              note: recurring.note,
+              type: recurring.type,
+              user_id: recurring.user_id,
+              recurrent_transaction_id: recurring.id,
+              category_id: referenceTransactions?.category_id || null,
+              tag_id: referenceTransactions?.tag_id || null,
+              payment_status_id:
+                referenceTransactions?.payment_status_id || null,
+              updated_at: new Date(),
+            });
+          }
+
+          if (transactionsToCreate.length > 0) {
+            const { error: insertError } = await supabase
+              .from('transactions')
+              .insert(transactionsToCreate);
+
+            if (insertError) {
+              stats.errors.push({
+                recurringId: recurring.id,
+                error: insertError.message || 'Error creating transactions',
+              });
+            } else {
+              stats.totalTransactionsCreated += transactionsToCreate.length;
+            }
+          }
+        } catch (error) {
+          stats.errors.push({
+            recurringId: recurring.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
       }
 
       return {
         success: true,
-        data: existingRecurring,
+        stats,
+        processedMonth: `${year}-${String(month + 1).padStart(2, '0')}`,
       };
     } catch (error) {
-      console.error('Unexpected error in deleteRecurringTransaction:', error);
-      return {
-        success: false,
-        error,
-      };
+      return { success: false, error };
     }
   }
 }

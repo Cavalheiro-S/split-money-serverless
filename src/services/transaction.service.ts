@@ -172,7 +172,9 @@ export class TransactionService {
     try {
       let query = supabase
         .from('transactions')
-        .select('*')
+        .select(
+          '*, payment_status:payment_status_id(*), categories:category_id(*), tags:tag_id(*), recurring_transactions:recurrent_transaction_id(*)'
+        )
         .eq('user_id', userId);
 
       if (filters.type) {
