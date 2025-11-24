@@ -262,6 +262,22 @@ functions:
           method: post
           authorizer:
             name: CognitoAuthorizer
+  # Scheduled - Recurring Transactions
+  createScheduledRecurringTransactions:
+    handler: src/functions/scheduled/create-scheduled-recurring-transactions.handler
+    events:
+      - schedule:
+          rate: cron(0 3 L * ? *)
+          enabled: true
+          description: 'Create recurring transactions at the end of each month (last day at 3 AM UTC)'
+  triggerCreateRecurringTransactions:
+    handler: src/functions/scheduled/trigger-create-recurring-transactions.handler
+    events:
+      - httpApi:
+          path: /scheduled/create-recurring-transactions
+          method: post
+          authorizer:
+            name: CognitoAuthorizer
 
   # Recurring Transaction
   getRecurringTransactions:
