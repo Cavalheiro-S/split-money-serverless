@@ -4,11 +4,15 @@ import {
   SignUpCommand,
   AdminDeleteUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { cognitoClient } from '../../libs/cognito';
-import { z } from 'zod';
-import { supabase } from '../../libs/supabase';
 import * as bcrypt from 'bcryptjs';
+import { z } from 'zod';
+
+import { cognitoClient } from '../../libs/cognito';
+import { supabase } from '../../libs/supabase';
+
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+
+
 
 const schema = z.object({
   email: z.string().email(),

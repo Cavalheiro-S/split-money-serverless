@@ -1,4 +1,5 @@
 import { RRule } from 'rrule';
+
 import { TransactionFrequencyEnum } from '../enums/transaction';
 
 export const convertToRRule = (

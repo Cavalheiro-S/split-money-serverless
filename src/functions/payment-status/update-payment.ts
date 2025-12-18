@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
 import { z } from 'zod';
+
 import { supabase } from '../../libs/supabase';
 import { Database } from '../../types/database/database.type';
 
@@ -46,6 +47,7 @@ export const handler = async (
       .from('payment_status')
       .update(payload)
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single()) as {
       data: PaymentStatus | null;

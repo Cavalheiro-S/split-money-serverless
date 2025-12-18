@@ -2,9 +2,11 @@ import {
   UpdateUserAttributesCommand,
   NotAuthorizedException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { cognitoClient } from '../../libs/cognito';
+
 import { AuthExceptions } from '../../enums/exceptions/auth';
+import { cognitoClient } from '../../libs/cognito';
+
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 export const handler = async (event: APIGatewayProxyEventV2) => {
   try {

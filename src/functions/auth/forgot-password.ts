@@ -3,10 +3,12 @@ import {
   UserNotFoundException,
   LimitExceededException,
 } from '@aws-sdk/client-cognito-identity-provider';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { cognitoClient } from '../../libs/cognito';
 import { z } from 'zod';
+
 import { AuthExceptions } from '../../enums/exceptions/auth';
+import { cognitoClient } from '../../libs/cognito';
+
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 const schema = z.object({
   email: z.string().email('Email inválido').toLowerCase(),

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+
 import 'dotenv/config';
 import { Database } from '../types/database/database.type';
 

@@ -1,23 +1,21 @@
-import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
 import { supabase } from '../../libs/supabase';
+import {
+  withStandardMiddleware,
+  AuthenticatedEvent,
+  ResponseBuilder,
+} from '../../presentation/middleware';
 import { Database } from '../../types/database/database.type';
 
 type Tables = Database['public']['Tables'];
 type Category = Tables['categories']['Row'];
 
-export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer
-) => {
-  try {
-    const userId = event.requestContext.authorizer.jwt.claims.sub;
-    if (!userId || typeof userId !== 'string' || userId.length === 0) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({
-          message: 'Unauthorized',
-        }),
-      };
-    }
+/**
+ * Get all categories for the authenticated user
+ * Uses standard middleware: auth + error handling
+ */
+export const handler = withStandardMiddleware(
+  async (event: AuthenticatedEvent) => {
+    const userId = event.userId; // Already validated by authMiddleware
 
     const { data: categories, error } = (await supabase
       .from('categories')
@@ -27,32 +25,11 @@ export const handler = async (
       error: any;
     };
 
+    // If error, throw it - errorMiddleware will handle it
     if (error) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Error fetching categories',
-          error,
-        }),
-      };
+      throw error;
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: 'Categories fetched successfully',
-        data: categories,
-      }),
-    };
-  } catch (error) {
-    console.log({ error });
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error fetching categories',
-        error,
-      }),
-    };
+    return ResponseBuilder.ok(categories || []);
   }
-};
+);

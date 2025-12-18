@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+ 
 /**
  * Test suite for scheduled recurring transactions creation
  *

@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
+
 import { supabase } from '../../libs/supabase';
 import { Database } from '../../types/database/database.type';
 
@@ -9,6 +10,7 @@ export const handler = async (
 ) => {
   try {
     const { id } = event.pathParameters || {};
+    const userId = event.requestContext.authorizer.jwt.claims.sub;
 
     if (!id) {
       return {
@@ -18,6 +20,19 @@ export const handler = async (
             code: 'INVALID_INPUT',
             message: 'ID não fornecido',
             details: 'O ID do usuário é obrigatório',
+          },
+        }),
+      };
+    }
+
+    if (!userId || typeof userId !== 'string' || userId !== id) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Acesso negado',
+            details: 'Você só pode acessar seus próprios dados',
           },
         }),
       };
