@@ -45,6 +45,7 @@ provider:
     SUPABASE_URL: ${env:SUPABASE_URL}
     SUPABASE_KEY: ${env:SUPABASE_KEY}
     COGNITO_CLIENT_ID: !Ref SplitMoneyUserPoolClient
+    COGNITO_USERPOOL_ID: !Ref SplitMoneyUserPool
 
 custom:
   esbuild:
