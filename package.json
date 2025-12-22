@@ -8,6 +8,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "dev": "sls offline --reloadHandler",
+    "deploy": "sls deploy",
+    "deploy:function": "sls deploy function --function",
     "lint": "eslint src/**/*.ts --ext .ts",
     "lint:fix": "eslint src/**/*.ts --ext .ts --fix",
     "format": "prettier --write src/**/*.ts",
