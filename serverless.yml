@@ -3,7 +3,14 @@ org: cavalheiro
 # "service" is the name of this project. This will also be added to your AWS resource names.
 service: split-money-serverless
 
+# Deploy to different environments:
+# serverless deploy --stage dev
+# serverless deploy --stage staging  
+# serverless deploy --stage prod
+# Default stage is 'dev' if not specified
+
 plugins:
+  - serverless-dotenv-plugin
   - serverless-offline
 
 package:
@@ -12,14 +19,23 @@ package:
 provider:
   name: aws
   runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
   memorySize: 128
   architecture: arm64
+  tags:
+    Environment: ${self:provider.stage}
+    Project: split-money
+  stackTags:
+    Environment: ${self:provider.stage}
+    Project: split-money
+  logRetentionInDays: ${self:custom.stages.${self:provider.stage}.logRetention}
   httpApi:
     cors:
       allowedOrigins:
         - 'http://localhost:3000'
         - 'https://split-money.vercel.app'
         - 'https://splitmoney.com.br'
+        - 'https://staging.splitmoney.com.br'
       allowedHeaders:
         - 'Content-Type'
         - 'Authorization'
@@ -42,12 +58,31 @@ provider:
         audience:
           - !Ref SplitMoneyUserPoolClient
   environment:
+    STAGE: ${self:provider.stage}
     SUPABASE_URL: ${env:SUPABASE_URL}
     SUPABASE_KEY: ${env:SUPABASE_KEY}
     COGNITO_CLIENT_ID: !Ref SplitMoneyUserPoolClient
     COGNITO_USERPOOL_ID: !Ref SplitMoneyUserPool
 
 custom:
+  dotenv:
+    path: .env.${self:provider.stage}
+    basePath: ./
+    include:
+      - SUPABASE_URL
+      - SUPABASE_KEY
+      - ROUTE53_HOSTED_ZONE_ID
+  stages:
+    dev:
+      logRetention: 7
+      # Dev usa a URL padrão do API Gateway (não precisa de domínio customizado)
+      # Formato: https://{api-id}.execute-api.{region}.amazonaws.com
+    staging:
+      logRetention: 14
+      domainName: api-staging.splitmoney.com.br
+    prod:
+      logRetention: 30
+      domainName: api.splitmoney.com.br
   esbuild:
     target: node20
     format: esm
@@ -58,11 +93,14 @@ custom:
       - '@aws-sdk/*'
 
 resources:
+  Conditions:
+    HasCustomDomain: !Not [!Equals ['${self:provider.stage}', 'dev']]
+  
   Resources:
     SplitMoneyUserPool:
       Type: AWS::Cognito::UserPool
       Properties:
-        UserPoolName: SplitMoneyUserPool
+        UserPoolName: SplitMoneyUserPool-${self:provider.stage}
         MfaConfiguration: OFF
         AutoVerifiedAttributes:
           - email
@@ -93,7 +131,7 @@ resources:
     SplitMoneyUserPoolClient:
       Type: AWS::Cognito::UserPoolClient
       Properties:
-        ClientName: SplitMoneyUserPoolClient
+        ClientName: SplitMoneyUserPoolClient-${self:provider.stage}
         UserPoolId: !Ref SplitMoneyUserPool
         ExplicitAuthFlows:
           - ALLOW_USER_PASSWORD_AUTH
@@ -107,18 +145,20 @@ resources:
 
     APIGatewayCertificate:
       Type: AWS::CertificateManager::Certificate
+      Condition: HasCustomDomain
       Properties:
-        DomainName: ${env:API_DOMAIN_NAME}
+        DomainName: ${self:custom.stages.${self:provider.stage}.domainName, ''}
         ValidationMethod: DNS
         DomainValidationOptions:
-          - DomainName: ${env:API_DOMAIN_NAME}
+          - DomainName: ${self:custom.stages.${self:provider.stage}.domainName, ''}
             HostedZoneId: ${env:ROUTE53_HOSTED_ZONE_ID}
 
     # 2. Domínio customizado na API Gateway
     APIGatewayCustomDomain:
       Type: AWS::ApiGatewayV2::DomainName
+      Condition: HasCustomDomain
       Properties:
-        DomainName: ${env:API_DOMAIN_NAME}
+        DomainName: ${self:custom.stages.${self:provider.stage}.domainName, ''}
         RoutingMode: API_MAPPING_ONLY
         DomainNameConfigurations:
           - CertificateArn: !Ref APIGatewayCertificate
@@ -129,6 +169,7 @@ resources:
     # 3. Mapeamento da API para o domínio
     APIGatewayApiMapping:
       Type: AWS::ApiGatewayV2::ApiMapping
+      Condition: HasCustomDomain
       Properties:
         ApiId: !Ref HttpApi
         DomainName: !Ref APIGatewayCustomDomain
@@ -136,6 +177,7 @@ resources:
 
     APIGatewayCustomDomainDNSRecord:
       Type: AWS::Route53::RecordSet
+      Condition: HasCustomDomain
       Properties:
         HostedZoneId: ${env:ROUTE53_HOSTED_ZONE_ID}
         Type: A
@@ -255,7 +297,7 @@ functions:
           method: get
           authorizer:
             name: CognitoAuthorizer
-  bulkDeleteTransactions:
+  bulkDeleteTx:
     handler: src/functions/transaction/bulk-delete-transactions.handler
     events:
       - httpApi:
@@ -264,14 +306,14 @@ functions:
           authorizer:
             name: CognitoAuthorizer
   # Scheduled - Recurring Transactions
-  createScheduledRecurringTransactions:
+  scheduleRecurringTx:
     handler: src/functions/scheduled/create-scheduled-recurring-transactions.handler
     events:
       - schedule:
           rate: cron(0 3 L * ? *)
           enabled: true
           description: 'Create recurring transactions at the end of each month (last day at 3 AM UTC)'
-  triggerCreateRecurringTransactions:
+  triggerRecurringTx:
     handler: src/functions/scheduled/trigger-create-recurring-transactions.handler
     events:
       - httpApi:
@@ -281,7 +323,7 @@ functions:
             name: CognitoAuthorizer
 
   # Recurring Transaction
-  getRecurringTransactions:
+  getRecurringTx:
     handler: src/functions/recurring-transaction/get-recurring-transactions.handler
     events:
       - httpApi:
@@ -289,7 +331,7 @@ functions:
           method: get
           authorizer:
             name: CognitoAuthorizer
-  updateRecurringTransaction:
+  updateRecurringTx:
     handler: src/functions/recurring-transaction/update-recurring-transaction.handler
     events:
       - httpApi:
@@ -297,7 +339,7 @@ functions:
           method: patch
           authorizer:
             name: CognitoAuthorizer
-  deleteRecurringTransaction:
+  deleteRecurringTx:
     handler: src/functions/recurring-transaction/delete-recurring-transaction.handler
     events:
       - httpApi:
@@ -305,7 +347,7 @@ functions:
           method: delete
           authorizer:
             name: CognitoAuthorizer
-  bulkDeleteRecurringTransactions:
+  bulkDeleteRecurringTx:
     handler: src/functions/recurring-transaction/bulk-delete-recurring-transactions.handler
     events:
       - httpApi:
