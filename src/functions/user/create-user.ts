@@ -7,6 +7,7 @@ import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod';
 import { cognitoClient } from '../../libs/cognito';
 import { supabase } from '../../libs/supabase';
+import { initializeUserDefaults } from '../../utils/initialize-user-defaults';
 
 const schema = z.object({
   email: z.string().email(),
@@ -53,6 +54,8 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
         }),
       };
     }
+
+    await initializeUserDefaults(data.id);
 
     return {
       statusCode: 200,

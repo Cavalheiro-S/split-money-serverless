@@ -305,6 +305,14 @@ functions:
           method: post
           authorizer:
             name: CognitoAuthorizer
+  bulkCreateTx:
+    handler: src/functions/transaction/bulk-create-transactions.handler
+    events:
+      - httpApi:
+          path: /transaction/bulk-create
+          method: post
+          authorizer:
+            name: CognitoAuthorizer
   # Scheduled - Recurring Transactions
   scheduleRecurringTx:
     handler: src/functions/scheduled/create-scheduled-recurring-transactions.handler

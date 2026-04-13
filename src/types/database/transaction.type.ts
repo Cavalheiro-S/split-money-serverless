@@ -1,3 +1,5 @@
+export type TransactionSource = 'manual' | 'ofx' | 'csv';
+
 export interface Transaction {
   Row: {
     id: string;
@@ -13,6 +15,8 @@ export interface Transaction {
     category_id?: string;
     payment_status_id?: string;
     recurrent_transaction_id?: string;
+    source?: TransactionSource;
+    external_id?: string;
   };
   Insert: Omit<Transaction['Row'], 'created_at'>;
   Update: Partial<Transaction['Insert']>;
@@ -32,6 +36,8 @@ export interface ExtendedTransaction {
   category_id?: string;
   payment_status_id?: string;
   recurrent_transaction_id?: string;
+  source?: TransactionSource;
+  external_id?: string;
   payment_status?: any;
   category?: any;
   tag?: any;
