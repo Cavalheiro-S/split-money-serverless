@@ -465,3 +465,61 @@ functions:
           method: get
           authorizer:
             name: CognitoAuthorizer
+
+  # Goals
+  getGoals:
+    handler: src/functions/goal/get-goals.handler
+    events:
+      - httpApi:
+          path: /goal
+          method: get
+          authorizer:
+            name: CognitoAuthorizer
+  createGoal:
+    handler: src/functions/goal/create-goal.handler
+    events:
+      - httpApi:
+          path: /goal
+          method: post
+          authorizer:
+            name: CognitoAuthorizer
+  updateGoal:
+    handler: src/functions/goal/update-goal.handler
+    events:
+      - httpApi:
+          path: /goal/{id}
+          method: put
+          authorizer:
+            name: CognitoAuthorizer
+  deleteGoal:
+    handler: src/functions/goal/delete-goal.handler
+    events:
+      - httpApi:
+          path: /goal/{id}
+          method: delete
+          authorizer:
+            name: CognitoAuthorizer
+  getContributions:
+    handler: src/functions/goal/get-contributions.handler
+    events:
+      - httpApi:
+          path: /goal/{id}/contribution
+          method: get
+          authorizer:
+            name: CognitoAuthorizer
+  createContribution:
+    handler: src/functions/goal/create-contribution.handler
+    events:
+      - httpApi:
+          path: /goal/{id}/contribution
+          method: post
+          authorizer:
+            name: CognitoAuthorizer
+  deleteContribution:
+    handler: src/functions/goal/delete-contribution.handler
+    events:
+      - httpApi:
+          path: /goal/{id}/contribution/{contribId}
+          method: delete
+          authorizer:
+            name: CognitoAuthorizer

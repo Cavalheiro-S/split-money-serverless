@@ -3,6 +3,7 @@ import { PaymentStatus } from './payment-status.type';
 import { Category } from './category.type';
 import { Tag } from './tag.type';
 import { RecurringTransaction } from './recurring-transaction.type';
+import { Goal, GoalContribution } from './goal.type';
 
 export type Json =
   | string
@@ -20,6 +21,8 @@ export interface Database {
       categories: Category;
       tags: Tag;
       recurring_transactions: RecurringTransaction;
+      goals: Goal;
+      goal_contributions: GoalContribution;
     };
   };
 }
