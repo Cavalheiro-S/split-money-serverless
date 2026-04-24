@@ -27,6 +27,30 @@ type TransactionInsert = Tables['transactions']['Insert'];
 
 const MAX_BATCH_SIZE = 500;
 
+// T7 – in-memory rate limiter: 3 imports per user per 60 seconds.
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+type RateLimitEntry = { count: number; windowStart: number };
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function checkRateLimit(userId: string, now = Date.now()): { allowed: boolean; retryAfter: number } {
+  const entry = rateLimitStore.get(userId);
+
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    rateLimitStore.set(userId, { count: 1, windowStart: now });
+    return { allowed: true, retryAfter: 0 };
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    const retryAfter = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - entry.windowStart)) / 1000);
+    return { allowed: false, retryAfter };
+  }
+
+  entry.count += 1;
+  return { allowed: true, retryAfter: 0 };
+}
+
 const itemSchema = z.object({
   description: z.string().min(1),
   date: z.coerce.date(),
@@ -46,11 +70,26 @@ const bodySchema = z.object({
 
 type FailedItem = { externalId: string; reason: string };
 
+// Tolerance in ms: treat updated_at within 1s of created_at as "unmodified".
+const MODIFIED_TOLERANCE_MS = 1_000;
+
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer
 ) => {
   try {
     const sub = event.requestContext.authorizer.jwt.claims.sub as string;
+
+    // T7 – rate limit check
+    const { allowed, retryAfter } = checkRateLimit(sub);
+    if (!allowed) {
+      return {
+        statusCode: 429,
+        headers: { 'Retry-After': String(retryAfter) },
+        body: JSON.stringify({
+          message: `Muitas importações. Aguarde ${retryAfter} segundo${retryAfter !== 1 ? 's' : ''}.`,
+        }),
+      };
+    }
 
     let body: unknown;
     try {
@@ -81,14 +120,15 @@ export const handler = async (
       byExternalId.set(tx.externalId, tx);
     }
 
-    // Find which external_ids already exist for this user.
+    // Find which external_ids already exist for this user, including timestamps
+    // so we can detect user-modified transactions (T8).
     const externalIds = Array.from(byExternalId.keys());
     const { data: existing, error: existingError } = (await supabase
       .from('transactions')
-      .select('external_id')
+      .select('external_id, created_at, updated_at')
       .eq('user_id', sub)
       .in('external_id', externalIds)) as {
-      data: { external_id: string }[] | null;
+      data: { external_id: string; created_at: string; updated_at: string }[] | null;
       error: any;
     };
 
@@ -103,19 +143,29 @@ export const handler = async (
       };
     }
 
-    const alreadyImported = new Set(
-      (existing ?? []).map(row => row.external_id)
+    const existingMap = new Map(
+      (existing ?? []).map((row) => [row.external_id, row])
     );
 
     const toInsert: TransactionInsert[] = [];
     const skipped: string[] = [];
+    const skippedModifiedIds: string[] = [];
     const failed: FailedItem[] = [];
 
     for (const [externalId, tx] of byExternalId) {
-      if (alreadyImported.has(externalId)) {
+      const existingRow = existingMap.get(externalId);
+      if (existingRow) {
         skipped.push(externalId);
+
+        // T8 – detect if user edited this transaction after import
+        const createdAt = new Date(existingRow.created_at).getTime();
+        const updatedAt = new Date(existingRow.updated_at).getTime();
+        if (updatedAt - createdAt > MODIFIED_TOLERANCE_MS) {
+          skippedModifiedIds.push(externalId);
+        }
         continue;
       }
+
       toInsert.push({
         id: uuidv4(),
         description: tx.description,
@@ -167,6 +217,7 @@ export const handler = async (
           total: incoming.length,
           created: created.length,
           skipped: skipped.length,
+          skipped_modified: skippedModifiedIds.length,
           failed: failed.length,
         },
         results: {
@@ -187,3 +238,6 @@ export const handler = async (
     };
   }
 };
+
+// Exported for testing
+export { checkRateLimit, rateLimitStore };
